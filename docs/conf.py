@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import mock # Mock for maya specific modules
-for mod in ['maya.cmds', 'maya.OpenMaya', 'maya.OpenMayaUI',
-            'pymel.core', 'PySide', 'shiboken']:
-    sys.modules[mod] = mock.MagicMock()
+import mock
+
+MOCK_MODULES = ['maya', 'maya.cmds', 'maya.OpenMaya', 'maya.OpenMayaUI',
+                'pymel', 'pymel.core', 'PySide', 'shiboken']
+sys.modules.update((mod_name, mock.Mock()) for mod_name in MOCK_MODULES)
 
 import os
 sys.path.insert(0, os.path.abspath('..'))
