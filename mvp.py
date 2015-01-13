@@ -1,3 +1,19 @@
+# -*- coding: utf-8 -*-
+'''
+mvp
+===
+Maya Viewport API: I really needed this.
+'''
+
+__title__ = 'mvp'
+__author__ = 'Dan Bradham'
+__email__ = 'danielbradham@gmail.com'
+__url__ = 'http://github.com/danbradham/mvp.git'
+__version__ = '0.1.0'
+__license__ = 'MIT'
+__description__ = 'Manipulate Maya 3D Viewports.'
+
+
 import os
 from functools import partial
 import shiboken
@@ -7,7 +23,28 @@ import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
 
 
+
 class Viewport(object):
+    '''A convenient api for manipulating Maya 3D Viewports. While you can
+    manually construct a Viewport from an OpenMayaUI.M3dView instance, it is
+    much easier to use the convenience methods Viewport.enumerate,
+    Viewport.active and Viewport.get::
+
+        # Get the active view
+        v = Viewport.active()
+        assert v.focus == True
+
+        # Assuming we have a second modelPanel available
+        # Get an inactive view and make it the active view
+        v2 = Viewport.get(1)
+        v2.focus = True
+
+        assert v.focus == False
+        assert v2.focus == True
+
+
+    :param m3dview: OpenMayaUI.M3dView instance.
+    '''
 
     _identifier_labels = []
     _editor_properties = [
@@ -33,10 +70,10 @@ class Viewport(object):
         'textureMaxSize', 'textureSampling', 'textures', 'transpInShadows',
         'transparencyAlgorithm', 'twoSidedLighting', 'useBaseRenderer',
         'useDefaultMaterial', 'useInteractiveMode', 'useReducedRenderer',
-        'viewSelected', 'wireframeOnShaded', 'xray', 'depth_of_field',
+        'viewSelected', 'wireframeOnShaded', 'xray', 'depthOfField',
         'gpuCacheDisplayFilter'
     ]
-    _unique_properties = ['depth_of_field']
+    _unique_properties = ['depthOfField']
     _plugin_objects = ['gpuCacheDisplayFilter']
 
     def __init__(self, m3dview):
@@ -46,122 +83,43 @@ class Viewport(object):
     def __eq__(self, other):
         return self.panel == other.panel
 
-    @property
-    def index(self):
-        for i, view in Viewport.enumerate():
-            if self == view:
-                return i
-        raise IndexError('Can not find index')
+    def __getattr__(self, name):
 
-    def focus(self):
-        '''Ensures this viewport is the active viewport.'''
+        if name in self._unique_properties:
+            return getattr(self, name)
 
-        self.widget.setFocus()
+        if name in self._editor_properties:
+            return self._get_property(name)
 
-    @property
-    def widget(self):
-        '''Returns a QWidget object for the viewport.'''
+        super(Viewport, self).__getattr__(name)
 
-        w = shiboken.wrapInstance(long(self._m3dview.widget()), QtGui.QWidget)
-        return w
+    def __setattr__(self, name, value):
 
-    @property
-    def panel(self):
-        '''Returns a panel name for the Viewport.'''
+        if name in self._unique_properties:
+            return setattr(self, name, value)
 
-        panel = OpenMayaUI.MQtUtil.fullName(long(self._m3dview.widget()))
-        for p in reversed(panel.split('|')):
-            if p:
-                return p
+        if name in self._editor_properties:
+            return self._set_property(name, value)
 
-    @property
-    def camera(self):
-        '''Get the short name of the active camera.'''
+        super(Viewport, self).__setattr__(name, value)
 
-        camera = OpenMaya.MDagPath()
-        self._m3dview.getCamera(camera)
-        camera.pop()
-        return camera.partialPathName()
-
-    @camera.setter
-    def set_camera(self, camera_path):
-        '''Set the active camera for the Viewport.'''
-
-        sel = OpenMaya.MSelectionList()
-        sel.add(camera_path)
-        camera = OpenMaya.MDagPath()
-        sel.getDagPath(0, camera)
-
-        util = OpenMaya.MScriptUtil(0)
-        int_ptr = util.asUintPtr()
-        camera.numberOfShapesDirectlyBelow(int_ptr)
-        num_shapes = util.getUint(int_ptr)
-        if num_shapes:
-            camera.extendToShape()
-
-        self._m3dview.setCamera(camera)
-        self._m3dview.scheduleRefresh()
-
-    @property
-    def depth_of_field(self):
-        '''Get active camera depthOfField attribute'''
-
-        c = self.camera
-        return cmds.getAttr(c + '.depthOfField')
-
-    @depth_of_field.setter
-    def depth_of_field(self, value):
-        '''Set active camera depthOfField attribute'''
-
-        c = self.camera
-        cmds.setAttr(c + '.depthOfField', value)
-
-    @property
-    def background(self):
-        '''Get the background color of the Viewport'''
-
-        color = self._m3dview.backgroundColor()
-        return color[0], color[1], color[2]
-
-    @background.setter
-    def background(self, values):
-        '''Set the background color of the Viewport.
-
-        :param values: RGB value'''
-
-        cmds.displayRGBColor('background', *values)
-
-    def get_plugin_property(self, name):
-        '''Gets a model editor property.'''
-
-        val = cmds.modelEditor(self.panel, **{'query': True, 'qpo': name})
-        return val
-
-    def set_plugin_property(self, name, value):
-        '''Sets a model editor property.'''
-
-        cmds.modelEditor(self.panel, **{'edit': True, 'po': [name, value]})
-
-    def get_property(self, name):
+    def _get_property(self, name):
         '''Gets a model editor property.'''
 
         try:
             val = cmds.modelEditor(self.panel, **{'query': True, name: True})
         except TypeError:
-            val = self.get_plugin_property(name)
-        except:
-            raise
+            val = cmds.modelEditor(self.panel, **{'query': True, 'qpo': name})
+
         return val
 
-    def set_property(self, name, value):
+    def _set_property(self, name, value):
         '''Sets a model editor property.'''
 
         try:
             cmds.modelEditor(self.panel, **{'edit': True, name: value})
         except TypeError:
-            self.set_plugin_property(name, value)
-        except:
-            raise
+            cmds.modelEditor(self.panel, **{'edit': True, 'po': [name, value]})
 
     @property
     def properties(self):
@@ -183,10 +141,10 @@ class Viewport(object):
                 # We need to add an exception here because this query returns
                 # a list but when setting the property we have to use a string
                 # Hooray for weird maya behavior
-                active_state[ep] = self.get_property(ep)[0]
+                active_state[ep] = self._get_property(ep)[0]
                 continue
 
-            active_state[ep] = self.get_property(ep)
+            active_state[ep] = self._get_property(ep)
 
         active_state['RenderGlobals'] = RenderGlobals.get_state()
 
@@ -205,38 +163,124 @@ class Viewport(object):
             except KeyError:
                 pass
 
-        for po in self._plugin_objects:
-            try:
-                self.set_plugin_property(po, cstate.pop(po))
-            except KeyError:
-                pass
-
         rg_state = cstate.pop('RenderGlobals')
         RenderGlobals.set_state(rg_state)
 
-        cstate['edit'] = True
-        cmds.modelEditor(self.panel, **cstate)
+        for k, v in cstate.iteritems():
+            try:
+                self._set_property(k, v)
+            except TypeError:
+                pass
 
-    @staticmethod
-    def count():
-        '''The number of 3D Viewports.'''
+    @property
+    def widget(self):
+        '''Returns a QWidget object for the viewport.'''
 
-        return OpenMayaUI.M3dView.numberOf3dViews()
+        w = shiboken.wrapInstance(long(self._m3dview.widget()), QtGui.QWidget)
+        return w
 
-    @classmethod
-    def get(cls, index):
-        '''Get the Viewport at index.'''
+    @property
+    def panel(self):
+        '''Returns a panel name for the Viewport.'''
 
-        m3dview = OpenMayaUI.M3dView()
-        OpenMayaUI.M3dView.get3dView(index, m3dview)
-        return cls(m3dview)
+        panel = OpenMayaUI.MQtUtil.fullName(long(self._m3dview.widget()))
+        for p in reversed(panel.split('|')):
+            if p:
+                return p
 
-    @classmethod
-    def active(cls):
-        '''Get the active Viewport.'''
+    @property
+    def index(self):
+        '''Returns the index of the viewport'''
 
-        m3dview = OpenMayaUI.M3dView.active3dView()
-        return cls(m3dview)
+        for i, view in Viewport.enumerate():
+            if self == view:
+                return i
+        raise IndexError('Can not find index')
+
+    @property
+    def focus(self):
+        '''Check if current Viewport is the active Viewport.'''
+        return self == self.active()
+
+    @focus.setter
+    def focus(self, value):
+        '''Set focus to Viewport instance.'''
+
+        if not value:
+            try:
+                Viewport.get(1).focus = True
+            except:
+                pass
+            return
+
+        cmds.modelEditor(self.panel, edit=True, activeView=True)
+
+    def copy(self):
+        '''Tear off a copy of the viewport.
+
+        :returns: A new torn off copy of Viewport'''
+
+        panel = cmds.modelPanel(tearOffCopy=self.panel)
+        view = self.from_panel(panel)
+        view.focus = True
+        return view
+
+    @property
+    def camera(self):
+        '''Get the short name of the active camera.'''
+
+        camera = OpenMaya.MDagPath()
+        self._m3dview.getCamera(camera)
+        camera.pop()
+        return camera.partialPathName()
+
+    @camera.setter
+    def camera(self, camera_path):
+        '''Set the active camera for the Viewport.'''
+
+        sel = OpenMaya.MSelectionList()
+        sel.add(camera_path)
+        camera = OpenMaya.MDagPath()
+        sel.getDagPath(0, camera)
+
+        util = OpenMaya.MScriptUtil(0)
+        int_ptr = util.asUintPtr()
+        camera.numberOfShapesDirectlyBelow(int_ptr)
+        num_shapes = util.getUint(int_ptr)
+        if num_shapes:
+            camera.extendToShape()
+
+        self._m3dview.setCamera(camera)
+        self._m3dview.refresh(False, False)
+
+    @property
+    def depthOfField(self):
+        '''Get active camera depthOfField attribute'''
+
+        c = self.camera
+        return cmds.getAttr(c + '.depthOfField')
+
+    @depthOfField.setter
+    def depthOfField(self, value):
+        '''Set active camera depthOfField attribute'''
+
+        c = self.camera
+        cmds.setAttr(c + '.depthOfField', value)
+
+    @property
+    def background(self):
+        '''Get the background color of the Viewport'''
+
+        color = self._m3dview.backgroundColor()
+        return color[0], color[1], color[2]
+
+    @background.setter
+    def background(self, values):
+        '''Set the background color of the Viewport.
+
+        :param values: RGB value'''
+
+        cmds.displayRGBColor('background', *values)
 
     def _draw_label(self, **kwargs):
         '''Draw text in viewport and return a QLabel. Used for identifying
@@ -284,14 +328,26 @@ class Viewport(object):
         return label
 
     def _identify(self, time=2000):
-        '''Instance.identify method. Shows identifier only in this Viewport.'''
+        '''Shows identifier only in this Viewport. Replaces classmethod
+        identify on __init__ of a Viewport instance::
+
+            v = Viewport.active()
+            v.identify()
+
+        :param time: Length of time in ms to leave up identifier
+        '''
 
         self.draw_identifier(self.index)
         QtCore.QTimer.singleShot(time, self.clear_identifiers)
 
     @classmethod
     def identify(cls, time=2000):
-        '''Class.identify method. Shows identifiers in all Viewports.'''
+        '''Shows identifiers in all Viewports::
+
+            Viewport.identify()
+
+        :param time: Length of time in ms to leave up identifier
+        '''
 
         cls.show_identifiers()
         QtCore.QTimer.singleShot(time, cls.clear_identifiers)
@@ -307,6 +363,7 @@ class Viewport(object):
             viewport.draw_identifier(index)
 
     def draw_identifier(self, index):
+        '''Draws an identifier in a Viewport.'''
 
         label = self._draw_label(
             text=str(index),
@@ -316,6 +373,33 @@ class Viewport(object):
             weight='bold',
         )
         self._identifier_labels.append(label)
+
+    @staticmethod
+    def count():
+        '''The number of 3D Viewports.'''
+
+        return OpenMayaUI.M3dView.numberOf3dViews()
+
+    @classmethod
+    def from_panel(cls, panel):
+        m3dview = OpenMayaUI.M3dView()
+        OpenMayaUI.M3dView.getM3dViewFromModelPanel(panel, m3dview)
+        return cls(m3dview)
+
+    @classmethod
+    def get(cls, index):
+        '''Get the Viewport at index.'''
+
+        m3dview = OpenMayaUI.M3dView()
+        OpenMayaUI.M3dView.get3dView(index, m3dview)
+        return cls(m3dview)
+
+    @classmethod
+    def active(cls):
+        '''Get the active Viewport.'''
+
+        m3dview = OpenMayaUI.M3dView.active3dView()
+        return cls(m3dview)
 
     @classmethod
     def clear_identifiers(cls):
@@ -343,7 +427,7 @@ class Viewport(object):
 class RenderGlobals(object):
     '''Get and set hardwareRenderingGlobals.'''
 
-    _relevant_properties = [
+    _relevant_attributes = [
         'multiSampleEnable', 'multiSampleCount', 'colorBakeResolution',
         'bumpBakeResolution', 'motionBlurEnable', 'motionBlurSampleCount',
         'ssaoEnable', 'ssaoAmount', 'ssaoRadius', 'ssaoFilterRadius'
@@ -359,17 +443,20 @@ class RenderGlobals(object):
 
     @classmethod
     def get_state(cls):
+        '''Collect hardwareRenderingGlobals attributes that effect
+        Viewports.'''
+
         active_state = {}
-        for p in cls._relevant_properties:
+        for p in cls._relevant_attributes:
             active_state[p] = cls.get(p)
 
         return active_state
 
     @classmethod
     def set_state(cls, state):
+        '''Set a bunch of hardwareRenderingGlobals all at once.
+
+        :param state: Dict containing attr, value pairs'''
+
         for k, v in state.iteritems():
             cls.set(k, v)
-
-if __name__ == '__main__':
-    active = Viewport.active()
-    active.identify()

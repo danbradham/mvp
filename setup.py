@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+import os
+import sys
+import mvp
+
+if sys.argv[-1] == 'cheeseit!':
+    os.system('python setup.py sdist upload')
+    sys.exit()
+
+elif sys.argv[-1] == 'testit!':
+    os.system('python setup.py sdist upload -r test')
+    sys.exit()
+
+
+package_data = {
+    '': ['LICENSE', 'README.rst']
+}
+
+with open("README.rst") as f:
+    readme = f.read()
+
+setup(
+    name="mvp",
+    version=mvp.__version__,
+    description=mvp.__description__,
+    long_description=readme,
+    author=mvp.__author__,
+    author_email=mvp.__email__,
+    url=mvp.__url__,
+    license=mvp.__version__,
+    package_data=package_data,
+    py_modules=['mvp'],
+    include_package_data=True,
+    classifiers=(
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        'Programming Language :: Python :: 2',
+    ),
+)

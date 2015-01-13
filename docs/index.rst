@@ -30,7 +30,7 @@ Features
 
 * Unified api for manipulating Maya Viewports
 
-* Get or set viewport state (all attributes). Making it easy to restore a Viewport to a previous configuration.
+* Get or set every viewport attribute all at once. Making it easy to restore a Viewport to a previous state.
 
 * Easily set focus and playblast Viewports. Much more consistent than using active view.
 
@@ -60,7 +60,11 @@ Distutils/Setuptools
     python setup.py install
 
 
-Documentation
-=============
+Table of Contents
+=================
 
-For more information visit the `docs <http://mvp.readthedocs.org>`_.
+.. toctree::
+    :maxdepth: 2
+
+    guide
+    api
