@@ -2,8 +2,8 @@
     :target: https://readthedocs.org/projects/mvp/?badge=latest
     :alt: Documentation Status
 
-.. image:: https://img.shields.io/badge/pypi-0.1.0-brightgreen.svg
-    :target: https://testpypi.python.org/pypi/apptemplate/
+.. image:: https://pypip.in/version/mvp/badge.svg
+    :target: https://testpypi.python.org/pypi/mvp/
     :alt: Latest Version
 
 =======================
