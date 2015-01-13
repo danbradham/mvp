@@ -1,18 +1,11 @@
 # -*- coding: utf-8 -*-
 '''
-mvp
-===
-Maya Viewport API: I really needed this.
+=======================
+MVP - Maya Viewport API
+=======================
+
+I really needed this...
 '''
-
-__title__ = 'mvp'
-__author__ = 'Dan Bradham'
-__email__ = 'danielbradham@gmail.com'
-__url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.1.0'
-__license__ = 'MIT'
-__description__ = 'Manipulate Maya 3D Viewports.'
-
 
 import os
 from functools import partial
@@ -22,6 +15,13 @@ import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
 
+__title__ = 'mvp'
+__author__ = 'Dan Bradham'
+__email__ = 'danielbradham@gmail.com'
+__url__ = 'http://github.com/danbradham/mvp.git'
+__version__ = '0.1.0'
+__license__ = 'MIT'
+__description__ = 'Manipulate Maya 3D Viewports.'
 
 
 class Viewport(object):

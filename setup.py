@@ -7,7 +7,14 @@ except ImportError:
     from distutils.core import setup
 import os
 import sys
-import mvp
+
+__title__ = 'mvp'
+__author__ = 'Dan Bradham'
+__email__ = 'danielbradham@gmail.com'
+__url__ = 'http://github.com/danbradham/mvp.git'
+__version__ = '0.1.0'
+__license__ = 'MIT'
+__description__ = 'Manipulate Maya 3D Viewports.'
 
 if sys.argv[-1] == 'cheeseit!':
     os.system('python setup.py sdist upload')
@@ -27,13 +34,13 @@ with open("README.rst") as f:
 
 setup(
     name="mvp",
-    version=mvp.__version__,
-    description=mvp.__description__,
+    version=__version__,
+    description=__description__,
     long_description=readme,
-    author=mvp.__author__,
-    author_email=mvp.__email__,
-    url=mvp.__url__,
-    license=mvp.__version__,
+    author=__author__,
+    author_email=__email__,
+    url=__url__,
+    license=__version__,
     package_data=package_data,
     py_modules=['mvp'],
     include_package_data=True,

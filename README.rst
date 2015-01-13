@@ -24,7 +24,6 @@ This module exists to unify and pythonify the various commands and apis necessar
     view.nurbsCurves = False
 
 
-
 Features
 ========
 
