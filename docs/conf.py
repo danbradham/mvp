@@ -4,7 +4,7 @@ import sys
 import mock
 
 MOCK_MODULES = ['maya', 'maya.cmds', 'maya.OpenMaya', 'maya.OpenMayaUI',
-                'pymel', 'pymel.core', 'PySide', 'shiboken']
+                'maya.utils', 'pymel', 'pymel.core', 'PySide', 'shiboken']
 sys.modules.update((mod_name, mock.Mock()) for mod_name in MOCK_MODULES)
 
 import os

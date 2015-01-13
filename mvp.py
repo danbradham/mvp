@@ -14,12 +14,13 @@ from PySide import QtGui, QtCore
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
+import maya.utils as utils
 
 __title__ = 'mvp'
 __author__ = 'Dan Bradham'
 __email__ = 'danielbradham@gmail.com'
 __url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 __license__ = 'MIT'
 __description__ = 'Manipulate Maya 3D Viewports.'
 
@@ -42,6 +43,11 @@ class Viewport(object):
         assert v.focus == False
         assert v2.focus == True
 
+    Viewport provides standard attribute lookup to all modelEditor kwargs::
+
+        # Hide nurbsCurves and show polymeshes in the viewport
+        v.nurbsCurves = False
+        v.polymeshes = True
 
     :param m3dview: OpenMayaUI.M3dView instance.
     '''
@@ -84,24 +90,15 @@ class Viewport(object):
         return self.panel == other.panel
 
     def __getattr__(self, name):
-
-        if name in self._unique_properties:
-            return getattr(self, name)
-
         if name in self._editor_properties:
             return self._get_property(name)
-
-        super(Viewport, self).__getattr__(name)
+        raise AttributeError()
 
     def __setattr__(self, name, value):
-
-        if name in self._unique_properties:
-            return setattr(self, name, value)
-
         if name in self._editor_properties:
-            return self._set_property(name, value)
-
-        super(Viewport, self).__setattr__(name, value)
+            self._set_property(name, value)
+        else:
+            super(Viewport, self).__setattr__(name, value)
 
     def _get_property(self, name):
         '''Gets a model editor property.'''
@@ -121,6 +118,19 @@ class Viewport(object):
         except TypeError:
             cmds.modelEditor(self.panel, **{'edit': True, 'po': [name, value]})
 
+    def copy(self):
+        '''Tear off a copy of the viewport.
+
+        :returns: A new torn off copy of Viewport'''
+
+        panel = cmds.modelPanel(tearOffCopy=self.panel)
+        view = self.from_panel(panel)
+        view.focus = True
+        return view
+
+    __copy__ = copy
+    __deepcopy__ = copy
+
     @property
     def properties(self):
         '''A list including all editor property names.'''
@@ -132,19 +142,16 @@ class Viewport(object):
 
         active_state = {}
         for ep in self._editor_properties:
-
-            if ep in self._unique_properties:
-                active_state[ep] = getattr(self, ep)
-                continue
+            print "Looking up: ", ep
 
             if ep == 'smallObjectThreshold':
                 # We need to add an exception here because this query returns
-                # a list but when setting the property we have to use a string
-                # Hooray for weird maya behavior
-                active_state[ep] = self._get_property(ep)[0]
+                # a list but when setting smallObjectThreshold we have to use
+                # a string Hooray for weird maya behavior
+                active_state[ep] = getattr(self, ep)[0]
                 continue
 
-            active_state[ep] = self._get_property(ep)
+            active_state[ep] = getattr(self, ep)
 
         active_state['RenderGlobals'] = RenderGlobals.get_state()
 
@@ -155,22 +162,41 @@ class Viewport(object):
 
         :param state: Dictionary including property, value pairs'''
 
-        cstate = dict(state)
+        cstate = state.copy()
 
-        for up in self._unique_properties:
-            try:
-                setattr(self, up, cstate.pop(up))
-            except KeyError:
-                pass
-
-        rg_state = cstate.pop('RenderGlobals')
+        rg_state = cstate.pop('RenderGlobals', {})
         RenderGlobals.set_state(rg_state)
 
         for k, v in cstate.iteritems():
             try:
-                self._set_property(k, v)
+                setattr(self, k, v)
             except TypeError:
                 pass
+
+    def playblast(self, filename, **kwargs):
+        '''Playblasting with reasonable default arguments. Automatically sets
+        this viewport to the active view, ensuring that we playblast the
+        correct view.
+
+        :param filename: Absolute path to output file
+        :param kwargs: Same kwargs as :func:`maya.cmds.playblast`'''
+
+        playblast_kwargs = {
+            'filename': filename,
+            'offScreen': False,
+            'percent': 100,
+            'quality': 100,
+            'viewer': True,
+            'widthHeight': (960, 540),
+            'framePadding': 4,
+            'format': 'qt',
+            'compression': 'H.264',
+        }
+        playblast_kwargs.update(kwargs)
+
+        if not self.focus:
+            self.focus = True
+        utils.executeDeferred(cmds.playblast, **playblast_kwargs)
 
     @property
     def widget(self):
@@ -214,16 +240,6 @@ class Viewport(object):
             return
 
         cmds.modelEditor(self.panel, edit=True, activeView=True)
-
-    def copy(self):
-        '''Tear off a copy of the viewport.
-
-        :returns: A new torn off copy of Viewport'''
-
-        panel = cmds.modelPanel(tearOffCopy=self.panel)
-        view = self.from_panel(panel)
-        view.focus = True
-        return view
 
     @property
     def camera(self):
@@ -425,7 +441,16 @@ class Viewport(object):
 
 
 class RenderGlobals(object):
-    '''Get and set hardwareRenderingGlobals.'''
+    '''Get and set hardwareRenderingGlobals. This class is replaced with an
+    instance of the same name, to allow for the use of __getattr__ and
+    __setattr__::
+
+        if not RenderGlobals.multiSampleEnable:
+            RenderGlobals.multiSampleEnable = True
+
+    The _relevant_attributes class attribute is a list of all the
+    hardwareRenderingGlobals attributes that actually effect playblasting.
+    '''
 
     _relevant_attributes = [
         'multiSampleEnable', 'multiSampleCount', 'colorBakeResolution',
@@ -433,30 +458,31 @@ class RenderGlobals(object):
         'ssaoEnable', 'ssaoAmount', 'ssaoRadius', 'ssaoFilterRadius'
     ]
 
-    @classmethod
-    def get(cls, name):
+    def __getattr__(self, name):
+        '''Get a hardwareRenderingGlobals attribute'''
         return cmds.getAttr('hardwareRenderingGlobals.' + name)
 
-    @classmethod
-    def set(cls, name, value):
+    def __setattr__(self, name, value):
+        '''Set a hardwareRenderingGlobals attribute'''
         cmds.setAttr('hardwareRenderingGlobals.' + name, value)
 
-    @classmethod
-    def get_state(cls):
+    def get_state(self):
         '''Collect hardwareRenderingGlobals attributes that effect
         Viewports.'''
 
         active_state = {}
-        for p in cls._relevant_attributes:
-            active_state[p] = cls.get(p)
+        for p in self._relevant_attributes:
+            active_state[p] = getattr(self, p)
 
         return active_state
 
-    @classmethod
-    def set_state(cls, state):
+    def set_state(self, state):
         '''Set a bunch of hardwareRenderingGlobals all at once.
 
         :param state: Dict containing attr, value pairs'''
 
         for k, v in state.iteritems():
-            cls.set(k, v)
+            setattr(self, k, v)
+
+
+RenderGlobals = RenderGlobals()
