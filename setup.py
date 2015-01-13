@@ -8,14 +8,6 @@ except ImportError:
 import os
 import sys
 
-__title__ = 'mvp'
-__author__ = 'Dan Bradham'
-__email__ = 'danielbradham@gmail.com'
-__url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.1.1'
-__license__ = 'MIT'
-__description__ = 'Manipulate Maya 3D Viewports.'
-
 if sys.argv[-1] == 'cheeseit!':
     os.system('python setup.py sdist upload')
     sys.exit()
@@ -34,13 +26,13 @@ with open("README.rst") as f:
 
 setup(
     name="mvp",
-    version=__version__,
-    description=__description__,
+    version='0.1.1',
+    description='Manipulate Maya 3D Viewports.',
     long_description=readme,
-    author=__author__,
-    author_email=__email__,
-    url=__url__,
-    license=__version__,
+    author='Dan Bradham',
+    author_email='danielbradham@gmail.com',
+    url='http://github.com/danbradham/mvp.git',
+    license='MIT',
     package_data=package_data,
     py_modules=['mvp'],
     include_package_data=True,
