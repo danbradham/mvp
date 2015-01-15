@@ -142,7 +142,6 @@ class Viewport(object):
 
         active_state = {}
         for ep in self._editor_properties:
-            print "Looking up: ", ep
 
             if ep == 'smallObjectThreshold':
                 # We need to add an exception here because this query returns
@@ -455,7 +454,8 @@ class RenderGlobals(object):
     _relevant_attributes = [
         'multiSampleEnable', 'multiSampleCount', 'colorBakeResolution',
         'bumpBakeResolution', 'motionBlurEnable', 'motionBlurSampleCount',
-        'ssaoEnable', 'ssaoAmount', 'ssaoRadius', 'ssaoFilterRadius'
+        'ssaoEnable', 'ssaoAmount', 'ssaoRadius', 'ssaoFilterRadius',
+        'ssaoSamples'
     ]
 
     def __getattr__(self, name):
