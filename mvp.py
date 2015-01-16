@@ -191,6 +191,7 @@ class Viewport(object):
             'framePadding': 4,
             'format': 'qt',
             'compression': 'H.264',
+            'forceOverwrite': True,
         }
         playblast_kwargs.update(kwargs)
 
