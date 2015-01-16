@@ -26,7 +26,7 @@ with open("README.rst") as f:
 
 setup(
     name="mvp",
-    version='0.1.1',
+    version='0.1.2',
     description='Manipulate Maya 3D Viewports.',
     long_description=readme,
     author='Dan Bradham',

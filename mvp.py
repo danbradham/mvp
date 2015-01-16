@@ -20,7 +20,7 @@ __title__ = 'mvp'
 __author__ = 'Dan Bradham'
 __email__ = 'danielbradham@gmail.com'
 __url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 __license__ = 'MIT'
 __description__ = 'Manipulate Maya 3D Viewports.'
 
@@ -207,11 +207,8 @@ class Viewport(object):
     @property
     def panel(self):
         '''Returns a panel name for the Viewport.'''
-
         panel = OpenMayaUI.MQtUtil.fullName(long(self._m3dview.widget()))
-        for p in reversed(panel.split('|')):
-            if p:
-                return p
+        return panel.split('|')[-2]
 
     @property
     def index(self):
@@ -352,7 +349,7 @@ class Viewport(object):
         :param time: Length of time in ms to leave up identifier
         '''
 
-        self.draw_identifier(self.index)
+        self.draw_identifier(self.panel)
         QtCore.QTimer.singleShot(time, self.clear_identifiers)
 
     @classmethod
@@ -375,15 +372,15 @@ class Viewport(object):
         :param time: Lenght of time to leave up identifying labels.'''
 
         for index, viewport in cls.enumerate():
-            viewport.draw_identifier(index)
+            viewport.draw_identifier(viewport.panel)
 
-    def draw_identifier(self, index):
+    def draw_identifier(self, text):
         '''Draws an identifier in a Viewport.'''
 
         label = self._draw_label(
-            text=str(index),
+            text=text,
             font='Helvetica',
-            size=128,
+            size=60,
             position=(0,0),
             weight='bold',
         )
@@ -428,15 +425,19 @@ class Viewport(object):
                 break
 
     @classmethod
-    def enumerate(cls, visible=True):
+    def enumerate(cls):
         '''Enumerate all Viewports.
         :returns: Tuple including index and Viewport objects.'''
 
         for index in xrange(cls.count()):
             m3dview = OpenMayaUI.M3dView()
             OpenMayaUI.M3dView.get3dView(index, m3dview)
-            if not visible or (visible and m3dview.isVisible()):
-                yield index, cls(m3dview)
+            yield index, cls(m3dview)
+
+
+def m3dview_to_panel(m3dview):
+    '''Get a panel name from an m3dview'''
+
 
 
 class RenderGlobals(object):
