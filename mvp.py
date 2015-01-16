@@ -20,7 +20,7 @@ __title__ = 'mvp'
 __author__ = 'Dan Bradham'
 __email__ = 'danielbradham@gmail.com'
 __url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 __license__ = 'MIT'
 __description__ = 'Manipulate Maya 3D Viewports.'
 
@@ -186,7 +186,8 @@ class Viewport(object):
             'percent': 100,
             'quality': 100,
             'viewer': True,
-            'widthHeight': (960, 540),
+            'width': 960,
+            'height': 540,
             'framePadding': 4,
             'format': 'qt',
             'compression': 'H.264',
@@ -433,11 +434,6 @@ class Viewport(object):
             m3dview = OpenMayaUI.M3dView()
             OpenMayaUI.M3dView.get3dView(index, m3dview)
             yield index, cls(m3dview)
-
-
-def m3dview_to_panel(m3dview):
-    '''Get a panel name from an m3dview'''
-
 
 
 class RenderGlobals(object):
