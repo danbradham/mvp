@@ -8,8 +8,11 @@ I really needed this...
 '''
 
 import os
-from functools import partial
+from functools import partial, wraps
+import time
 import shiboken
+import traceback
+from copy import deepcopy
 from PySide import QtGui, QtCore
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
@@ -20,10 +23,69 @@ __title__ = 'mvp'
 __author__ = 'Dan Bradham'
 __email__ = 'danielbradham@gmail.com'
 __url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.1.3'
+__version__ = '0.2.0'
 __license__ = 'MIT'
 __description__ = 'Manipulate Maya 3D Viewports.'
 
+
+def get_maya_window():
+    '''Get Maya MainWindow as a QWidget.'''
+
+    from maya.OpenMayaUI import MQtUtil
+    ptr = long(MQtUtil.mainWindow())
+    return shiboken.wrapInstance(ptr, QtGui.QMainWindow)
+
+
+def wait(delay=1):
+    '''Delay python execution for a specified amount of time'''
+
+    s = time.clock()
+
+    while True:
+        if time.clock() - s >= delay:
+            return
+        QtGui.qApp.processEvents()
+
+
+def defer(fn):
+    @wraps(fn)
+    def caller(*args, **kwargs):
+        wait(0.1)
+        utils.executeDeferred(fn, *args, **kwargs)
+    return caller
+
+
+def close(view):
+    panel = view.panel
+    wait(0.1)
+    utils.executeDeferred(cmds.deleteUI, panel, panel=True)
+
+
+def playblast(filename, camera, state=None,
+              width=960, height=540, format='qt', compression='H.264'):
+
+    active = Viewport.active()
+    pre_state = active.get_state()
+
+    # Setup viewport
+    v = Viewport.new()
+    v.size = width, height
+    v.center()
+    wait(0.1)
+    if state:
+        v.set_state(state)
+    v.camera = camera
+    v.playblast(
+        filename,
+        width=width,
+        height=height,
+        format=format,
+        compression=compression)
+
+    # wait(1)
+    # Restore previous state
+    active.set_state(pre_state)
+    v.close()
 
 class Viewport(object):
     '''A convenient api for manipulating Maya 3D Viewports. While you can
@@ -86,8 +148,13 @@ class Viewport(object):
         self._m3dview = m3dview
         self.identify = self._identify
 
+    def __hash__(self):
+        return hash(self._m3dview)
+
     def __eq__(self, other):
-        return self.panel == other.panel
+        if hasattr(other, '_m3dview'):
+            return self._m3dview == other._m3dview
+        return self.panel == other
 
     def __getattr__(self, name):
         if name in self._editor_properties:
@@ -118,6 +185,12 @@ class Viewport(object):
         except TypeError:
             cmds.modelEditor(self.panel, **{'edit': True, 'po': [name, value]})
 
+    def float(self):
+        '''Tear off the panel.'''
+        copied_view = self.copy()
+        close(self)
+        self._m3dview = copied_view._m3dview
+
     def copy(self):
         '''Tear off a copy of the viewport.
 
@@ -130,6 +203,18 @@ class Viewport(object):
 
     __copy__ = copy
     __deepcopy__ = copy
+
+    @classmethod
+    def new(cls):
+        panel = cmds.modelPanel()
+        view = cls.from_panel(panel)
+        view.float()
+        view.focus = True
+        return view
+
+    def close(self):
+        '''Close this viewport'''
+        close(self)
 
     @property
     def properties(self):
@@ -163,8 +248,9 @@ class Viewport(object):
 
         cstate = state.copy()
 
-        rg_state = cstate.pop('RenderGlobals', {})
-        RenderGlobals.set_state(rg_state)
+        rg_state = cstate.pop('RenderGlobals', None)
+        if rg_state:
+            RenderGlobals.set_state(rg_state)
 
         for k, v in cstate.iteritems():
             try:
@@ -172,6 +258,7 @@ class Viewport(object):
             except TypeError:
                 pass
 
+    # @defer
     def playblast(self, filename, **kwargs):
         '''Playblasting with reasonable default arguments. Automatically sets
         this viewport to the active view, ensuring that we playblast the
@@ -197,7 +284,37 @@ class Viewport(object):
 
         if not self.focus:
             self.focus = True
-        utils.executeDeferred(cmds.playblast, **playblast_kwargs)
+        cmds.playblast(**playblast_kwargs)
+
+    @property
+    def screen_geometry(self):
+        qapp = QtGui.QApplication.instance()
+        desktop = qapp.desktop()
+        screen = desktop.screenNumber(self.widget)
+        return desktop.screenGeometry(screen)
+
+    def center(self):
+        if self.window is get_maya_window():
+            raise Exception('Can only center torn off viewports')
+        screen_center = self.screen_geometry.center()
+        window_center = self.window.rect().center()
+        pnt = screen_center - window_center
+        self.window.move(pnt)
+
+    @property
+    def size(self):
+        return self._m3dview.portWidth(), self._m3dview.portHeight()
+
+    @size.setter
+    def size(self, wh):
+        if self.window is get_maya_window():
+            raise Exception('Can only change size of torn off viewports...')
+        w1, h1 = self.size
+        win_size = self.window.size()
+        w2, h2 = win_size.width(), win_size.height()
+        w_offset = w2 - w1
+        h_offset = h2 - h1
+        self.window.resize(wh[0] + w_offset, wh[1] + h_offset)
 
     @property
     def widget(self):
@@ -205,6 +322,12 @@ class Viewport(object):
 
         w = shiboken.wrapInstance(long(self._m3dview.widget()), QtGui.QWidget)
         return w
+
+    @property
+    def window(self):
+        '''Returns a QWidget object for the viewports parent window'''
+
+        return self.widget.window()
 
     @property
     def panel(self):
