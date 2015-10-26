@@ -14,48 +14,43 @@ import shiboken
 import traceback
 from copy import deepcopy
 from PySide import QtGui, QtCore
+from .renderglobals import RenderGlobals
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
 import maya.utils as utils
 
-__title__ = 'mvp'
-__author__ = 'Dan Bradham'
-__email__ = 'danielbradham@gmail.com'
-__url__ = 'http://github.com/danbradham/mvp.git'
-__version__ = '0.2.0'
-__license__ = 'MIT'
-__description__ = 'Manipulate Maya 3D Viewports.'
 
 
-def get_maya_window():
-    '''Get Maya MainWindow as a QWidget.'''
+EDITOR_PROPERTIES = [
+    'activeComponentsXray', 'activeOnly', 'backfaceCulling', 'bufferMode',
+    'bumpResolution', 'camera', 'cameras', 'clipGhosts', 'colorResolution',
+    'controlVertices', 'cullingOverride', 'deformers', 'dimensions',
+    'displayAppearance', 'displayLights', 'displayTextures',
+    'dynamicConstraints', 'dynamics', 'fluids', 'fogColor', 'fogDensity',
+    'fogEnd', 'fogMode', 'fogSource', 'fogStart', 'fogging', 'follicles',
+    'greasePencils', 'grid', 'hairSystems', 'handles', 'headsUpDisplay',
+    'hulls', 'ignorePanZoom', 'ikHandles', 'imagePlane',
+    'interactiveBackFaceCull', 'interactiveDisableShadows', 'isFiltered',
+    'jointXray', 'joints', 'lights', 'lineWidth', 'locators',
+    'lowQualityLighting', 'manipulators', 'maxConstantTransparency',
+    'maximumNumHardwareLights', 'motionTrails', 'nCloths', 'nParticles',
+    'nRigids', 'nurbsCurves', 'nurbsSurfaces', 'objectFilterShowInHUD',
+    'occlusionCulling', 'particleInstancers', 'pivots', 'planes',
+    'pluginShapes', 'polymeshes', 'rendererName', 'selectionHiliteDisplay',
+    'shadingModel', 'shadows', 'smallObjectCulling',
+    'smallObjectThreshold', 'smoothWireframe', 'sortTransparent',
+    'strokes', 'subdivSurfaces', 'textureAnisotropic',
+    'textureCompression', 'textureDisplay', 'textureHilight',
+    'textureMaxSize', 'textureSampling', 'textures', 'transpInShadows',
+    'transparencyAlgorithm', 'twoSidedLighting', 'useBaseRenderer',
+    'useDefaultMaterial', 'useInteractiveMode', 'useReducedRenderer',
+    'viewSelected', 'wireframeOnShaded', 'xray', 'depthOfField',
+    'gpuCacheDisplayFilter'
+]
 
-    from maya.OpenMayaUI import MQtUtil
-    ptr = long(MQtUtil.mainWindow())
-    return shiboken.wrapInstance(ptr, QtGui.QMainWindow)
 
-
-def wait(delay=1):
-    '''Delay python execution for a specified amount of time'''
-
-    s = time.clock()
-
-    while True:
-        if time.clock() - s >= delay:
-            return
-        QtGui.qApp.processEvents()
-
-
-def defer(fn):
-    @wraps(fn)
-    def caller(*args, **kwargs):
-        wait(0.1)
-        utils.executeDeferred(fn, *args, **kwargs)
-    return caller
-
-
-def close(view):
+def deferred_close(view):
     panel = view.panel
     wait(0.1)
     utils.executeDeferred(cmds.deleteUI, panel, panel=True)
@@ -87,10 +82,53 @@ def playblast(filename, camera, state=None,
     active.set_state(pre_state)
     v.close()
 
+
+class EditorProperty(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, inst, typ=None):
+        '''Gets a model editor property.'''
+
+        if not inst:
+            return self
+
+        try:
+            val = cmds.modelEditor(
+                inst.panel,
+                **{'query': True, self.name: True}
+            )
+        except TypeError:
+            val = cmds.modelEditor(
+                inst.panel,
+                **{'query': True, 'qpo': self.name}
+            )
+
+        if self.name == 'smallObjectThreshold':
+            val = val[0]
+
+        return val
+
+    def __set__(self, inst, value):
+        '''Sets a model editor property.'''
+
+        try:
+            cmds.modelEditor(
+                inst.panel,
+                **{'edit': True, self.name: value}
+            )
+        except TypeError:
+            cmds.modelEditor(
+                inst.panel,
+                **{'edit': True, 'po': [self.name, value]}
+            )
+
+
 class Viewport(object):
     '''A convenient api for manipulating Maya 3D Viewports. While you can
     manually construct a Viewport from an OpenMayaUI.M3dView instance, it is
-    much easier to use the convenience methods Viewport.enumerate,
+    much easier to use the convenience methods Viewport.iter,
     Viewport.active and Viewport.get::
 
         # Get the active view
@@ -105,7 +143,7 @@ class Viewport(object):
         assert v.focus == False
         assert v2.focus == True
 
-    Viewport provides standard attribute lookup to all modelEditor kwargs::
+    Viewport provides standard attribute lookup to all modelEditor properties::
 
         # Hide nurbsCurves and show polymeshes in the viewport
         v.nurbsCurves = False
@@ -114,35 +152,10 @@ class Viewport(object):
     :param m3dview: OpenMayaUI.M3dView instance.
     '''
 
+    for p in EDITOR_PROPERTIES: # Initialize all editor properties
+        locals()[p] = EditorProperty(p)
+
     _identifier_labels = []
-    _editor_properties = [
-        'activeComponentsXray', 'activeOnly', 'backfaceCulling', 'bufferMode',
-        'bumpResolution', 'camera', 'cameras', 'clipGhosts', 'colorResolution',
-        'controlVertices', 'cullingOverride', 'deformers', 'dimensions',
-        'displayAppearance', 'displayLights', 'displayTextures',
-        'dynamicConstraints', 'dynamics', 'fluids', 'fogColor', 'fogDensity',
-        'fogEnd', 'fogMode', 'fogSource', 'fogStart', 'fogging', 'follicles',
-        'greasePencils', 'grid', 'hairSystems', 'handles', 'headsUpDisplay',
-        'hulls', 'ignorePanZoom', 'ikHandles', 'imagePlane',
-        'interactiveBackFaceCull', 'interactiveDisableShadows', 'isFiltered',
-        'jointXray', 'joints', 'lights', 'lineWidth', 'locators',
-        'lowQualityLighting', 'manipulators', 'maxConstantTransparency',
-        'maximumNumHardwareLights', 'motionTrails', 'nCloths', 'nParticles',
-        'nRigids', 'nurbsCurves', 'nurbsSurfaces', 'objectFilterShowInHUD',
-        'occlusionCulling', 'particleInstancers', 'pivots', 'planes',
-        'pluginShapes', 'polymeshes', 'rendererName', 'selectionHiliteDisplay',
-        'shadingModel', 'shadows', 'smallObjectCulling',
-        'smallObjectThreshold', 'smoothWireframe', 'sortTransparent',
-        'strokes', 'subdivSurfaces', 'textureAnisotropic',
-        'textureCompression', 'textureDisplay', 'textureHilight',
-        'textureMaxSize', 'textureSampling', 'textures', 'transpInShadows',
-        'transparencyAlgorithm', 'twoSidedLighting', 'useBaseRenderer',
-        'useDefaultMaterial', 'useInteractiveMode', 'useReducedRenderer',
-        'viewSelected', 'wireframeOnShaded', 'xray', 'depthOfField',
-        'gpuCacheDisplayFilter'
-    ]
-    _unique_properties = ['depthOfField']
-    _plugin_objects = ['gpuCacheDisplayFilter']
 
     def __init__(self, m3dview):
         self._m3dview = m3dview
@@ -155,41 +168,6 @@ class Viewport(object):
         if hasattr(other, '_m3dview'):
             return self._m3dview == other._m3dview
         return self.panel == other
-
-    def __getattr__(self, name):
-        if name in self._editor_properties:
-            return self._get_property(name)
-        raise AttributeError()
-
-    def __setattr__(self, name, value):
-        if name in self._editor_properties:
-            self._set_property(name, value)
-        else:
-            super(Viewport, self).__setattr__(name, value)
-
-    def _get_property(self, name):
-        '''Gets a model editor property.'''
-
-        try:
-            val = cmds.modelEditor(self.panel, **{'query': True, name: True})
-        except TypeError:
-            val = cmds.modelEditor(self.panel, **{'query': True, 'qpo': name})
-
-        return val
-
-    def _set_property(self, name, value):
-        '''Sets a model editor property.'''
-
-        try:
-            cmds.modelEditor(self.panel, **{'edit': True, name: value})
-        except TypeError:
-            cmds.modelEditor(self.panel, **{'edit': True, 'po': [name, value]})
-
-    def float(self):
-        '''Tear off the panel.'''
-        copied_view = self.copy()
-        close(self)
-        self._m3dview = copied_view._m3dview
 
     def copy(self):
         '''Tear off a copy of the viewport.
@@ -204,6 +182,12 @@ class Viewport(object):
     __copy__ = copy
     __deepcopy__ = copy
 
+    def float(self):
+        '''Tear off the panel.'''
+        copied_view = self.copy()
+        deferred_close(self)
+        self._m3dview = copied_view._m3dview
+
     @classmethod
     def new(cls):
         panel = cmds.modelPanel()
@@ -214,29 +198,20 @@ class Viewport(object):
 
     def close(self):
         '''Close this viewport'''
-        close(self)
+        deferred_close(self)
 
     @property
     def properties(self):
         '''A list including all editor property names.'''
 
-        return self._editor_properties
+        return EDITOR_PROPERTIES
 
     def get_state(self):
         '''Get a state dictionary of all modelEditor properties.'''
 
         active_state = {}
-        for ep in self._editor_properties:
-
-            if ep == 'smallObjectThreshold':
-                # We need to add an exception here because this query returns
-                # a list but when setting smallObjectThreshold we have to use
-                # a string Hooray for weird maya behavior
-                active_state[ep] = getattr(self, ep)[0]
-                continue
-
+        for ep in EDITOR_PROPERTIES:
             active_state[ep] = getattr(self, ep)
-
         active_state['RenderGlobals'] = RenderGlobals.get_state()
 
         return active_state
@@ -248,17 +223,13 @@ class Viewport(object):
 
         cstate = state.copy()
 
-        rg_state = cstate.pop('RenderGlobals', None)
-        if rg_state:
-            RenderGlobals.set_state(rg_state)
+        renderglobals_state = cstate.pop('RenderGlobals', None)
+        if renderglobals_state:
+            RenderGlobals.set_state(renderglobals_state)
 
         for k, v in cstate.iteritems():
-            try:
-                setattr(self, k, v)
-            except TypeError:
-                pass
+            setattr(self, k, v)
 
-    # @defer
     def playblast(self, filename, **kwargs):
         '''Playblasting with reasonable default arguments. Automatically sets
         this viewport to the active view, ensuring that we playblast the
@@ -294,8 +265,6 @@ class Viewport(object):
         return desktop.screenGeometry(screen)
 
     def center(self):
-        if self.window is get_maya_window():
-            raise Exception('Can only center torn off viewports')
         screen_center = self.screen_geometry.center()
         window_center = self.window.rect().center()
         pnt = screen_center - window_center
@@ -307,8 +276,6 @@ class Viewport(object):
 
     @size.setter
     def size(self, wh):
-        if self.window is get_maya_window():
-            raise Exception('Can only change size of torn off viewports...')
         w1, h1 = self.size
         win_size = self.window.size()
         w2, h2 = win_size.width(), win_size.height()
@@ -394,15 +361,13 @@ class Viewport(object):
     def depthOfField(self):
         '''Get active camera depthOfField attribute'''
 
-        c = self.camera
-        return cmds.getAttr(c + '.depthOfField')
+        return cmds.getAttr(self.camera + '.depthOfField')
 
     @depthOfField.setter
     def depthOfField(self, value):
         '''Set active camera depthOfField attribute'''
 
-        c = self.camera
-        cmds.setAttr(c + '.depthOfField', value)
+        cmds.setAttr(self.camera + '.depthOfField', value)
 
     @property
     def background(self):
@@ -499,6 +464,17 @@ class Viewport(object):
         for index, viewport in cls.enumerate():
             viewport.draw_identifier(viewport.panel)
 
+    @classmethod
+    def clear_identifiers(cls):
+        '''Remove all the QLabels drawn by show_identifiers.'''
+        while True:
+            try:
+                label = cls._identifier_labels.pop()
+                label.setParent(None)
+                del(label)
+            except IndexError:
+                break
+
     def draw_identifier(self, text):
         '''Draws an identifier in a Viewport.'''
 
@@ -539,71 +515,16 @@ class Viewport(object):
         return cls(m3dview)
 
     @classmethod
-    def clear_identifiers(cls):
-        '''Remove all the QLabels drawn by show_identifiers.'''
-        while True:
-            try:
-                label = cls._identifier_labels.pop()
-                label.setParent(None)
-                del(label)
-            except IndexError:
-                break
+    def iter(cls):
+        '''Yield all Viewport objects.
 
-    @classmethod
-    def enumerate(cls):
-        '''Enumerate all Viewports.
-        :returns: Tuple including index and Viewport objects.'''
+        usage::
+
+            for view in Viewport.iter():
+                print v.panel
+        '''
 
         for index in xrange(cls.count()):
             m3dview = OpenMayaUI.M3dView()
             OpenMayaUI.M3dView.get3dView(index, m3dview)
-            yield index, cls(m3dview)
-
-
-class RenderGlobals(object):
-    '''Get and set hardwareRenderingGlobals. This class is replaced with an
-    instance of the same name, to allow for the use of __getattr__ and
-    __setattr__::
-
-        if not RenderGlobals.multiSampleEnable:
-            RenderGlobals.multiSampleEnable = True
-
-    The _relevant_attributes class attribute is a list of all the
-    hardwareRenderingGlobals attributes that actually effect playblasting.
-    '''
-
-    _relevant_attributes = [
-        'multiSampleEnable', 'multiSampleCount', 'colorBakeResolution',
-        'bumpBakeResolution', 'motionBlurEnable', 'motionBlurSampleCount',
-        'ssaoEnable', 'ssaoAmount', 'ssaoRadius', 'ssaoFilterRadius',
-        'ssaoSamples'
-    ]
-
-    def __getattr__(self, name):
-        '''Get a hardwareRenderingGlobals attribute'''
-        return cmds.getAttr('hardwareRenderingGlobals.' + name)
-
-    def __setattr__(self, name, value):
-        '''Set a hardwareRenderingGlobals attribute'''
-        cmds.setAttr('hardwareRenderingGlobals.' + name, value)
-
-    def get_state(self):
-        '''Collect hardwareRenderingGlobals attributes that effect
-        Viewports.'''
-
-        active_state = {}
-        for p in self._relevant_attributes:
-            active_state[p] = getattr(self, p)
-
-        return active_state
-
-    def set_state(self, state):
-        '''Set a bunch of hardwareRenderingGlobals all at once.
-
-        :param state: Dict containing attr, value pairs'''
-
-        for k, v in state.iteritems():
-            setattr(self, k, v)
-
-
-RenderGlobals = RenderGlobals()
+            yield cls(m3dview)

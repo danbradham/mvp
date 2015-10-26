@@ -1,12 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+import re
+from setuptools import setup, find_packages
 import os
 import sys
+
+
+def get_info(pyfile):
+    '''Retrieve dunder values from a pyfile'''
+
+    info = {}
+    info_re = re.compile(r"^__(\w+)__ = ['\"](.*)['\"]")
+    with open(pyfile, 'r') as f:
+        for line in f.readlines():
+            match = info_re.search(line)
+            if match:
+                info[match.group(1)] = match.group(2)
+
+    return info
+
+info = get_info('psforms/__init__.py')
+
 
 if sys.argv[-1] == 'cheeseit!':
     os.system('python setup.py sdist upload')
@@ -25,16 +40,18 @@ with open("README.rst") as f:
     readme = f.read()
 
 setup(
-    name="mvp",
-    version='0.1.3',
-    description='Manipulate Maya 3D Viewports.',
+    name=info['title'],
+    version=info['version'],
+    description=info['description'],
     long_description=readme,
-    author='Dan Bradham',
-    author_email='danielbradham@gmail.com',
-    url='http://github.com/danbradham/mvp.git',
-    license='MIT',
-    package_data=package_data,
-    py_modules=['mvp'],
+    author=info['author'],
+    author_email=info['email'],
+    url=info['url'],
+    license=info['license'],
+    packages=find_packages(),
+    package_data={
+        '': ['LICENSE', 'README.rst']
+    },
     include_package_data=True,
     classifiers=(
         "Development Status :: 3 - Alpha",
