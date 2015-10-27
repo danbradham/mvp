@@ -8,13 +8,10 @@ I really needed this...
 '''
 
 import os
-from functools import partial, wraps
-import time
 import shiboken
-import traceback
-from copy import deepcopy
 from PySide import QtGui, QtCore
 from .renderglobals import RenderGlobals
+from .utils import wait
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
@@ -429,37 +426,35 @@ class Viewport(object):
         label.move(*position)
         return label
 
-    def _identify(self, time=2000):
+    def _identify(self, delay=2000):
         '''Shows identifier only in this Viewport. Replaces classmethod
         identify on __init__ of a Viewport instance::
 
             v = Viewport.active()
             v.identify()
 
-        :param time: Length of time in ms to leave up identifier
+        :param delay: Length of time in ms to leave up identifier
         '''
 
         self.draw_identifier(self.panel)
-        QtCore.QTimer.singleShot(time, self.clear_identifiers)
+        QtCore.QTimer.singleShot(delay, self.clear_identifiers)
 
     @classmethod
-    def identify(cls, time=2000):
+    def identify(cls, delay=2000):
         '''Shows identifiers in all Viewports::
 
             Viewport.identify()
 
-        :param time: Length of time in ms to leave up identifier
+        :param delay: Length of time in ms to leave up identifier
         '''
 
         cls.show_identifiers()
-        QtCore.QTimer.singleShot(time, cls.clear_identifiers)
+        QtCore.QTimer.singleShot(delay, cls.clear_identifiers)
 
     @classmethod
     def show_identifiers(cls):
         '''Draws QLabels indexing each Viewport. These indices can be used to
-        with :method:`get` to return a corresponding Viewport object.
-
-        :param time: Lenght of time to leave up identifying labels.'''
+        with :method:`get` to return a corresponding Viewport object.'''
 
         for index, viewport in cls.enumerate():
             viewport.draw_identifier(viewport.panel)

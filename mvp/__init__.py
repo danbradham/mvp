@@ -9,4 +9,6 @@ __description__ = 'Manipulate Maya 3D Viewports.'
 
 from .viewport import Viewport, playblast
 from .renderglobals import RenderGlobals
-from .utils import *
+from . import presets, utils
+
+presets.init()

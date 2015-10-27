@@ -3,16 +3,16 @@ import glob
 import os
 import sys
 
-presets_path = os.environ.get('MVP_PRESETS', os.path.expanduser('~/.mvp'))
+PRESETS_PATH = os.environ.get('MVP_PRESETS', os.path.expanduser('~/.mvp'))
 
-if not os.path.exists(presets_path):
-    os.makedirs(presets_path)
+if not os.path.exists(PRESETS_PATH):
+    os.makedirs(PRESETS_PATH)
 
-sys.path.insert(1, presets_path)
+sys.path.insert(1, PRESETS_PATH)
 
 
 def get_presets():
-    for f in glob.glob(os.path.join(presets_path, '*.json')):
+    for f in glob.glob(os.path.join(PRESETS_PATH, '*.json')):
 
         base = os.path.basename(f)
         name = os.path.splitext(base)[0]
@@ -23,32 +23,40 @@ def get_presets():
         yield name, data
 
 
+def get_preset(name):
+
+    for n, s in get_presets():
+        if name == n:
+            return s
+
+
 def new_preset(name, data):
 
-    with open(os.path.join(presets_path, f + '.json'), 'w') as f:
+    preset_path = os.path.join(PRESETS_PATH, name + '.json')
+    with open(preset_path, 'w') as f:
         f.write(json.dumps(data))
 
 
 def del_preset(name):
 
-    preset_path = os.path.join(presets_path, name + '.json')
+    preset_path = os.path.join(PRESETS_PATH, name + '.json')
     if os.path.exists(preset_path):
         os.remove(preset_path)
 
 
-pathgen_registry = {}
+PATHGEN_REGISTRY = {}
 
 def register(name, fn):
-    pathgen_registry[name] = fn
+    PATHGEN_REGISTRY[name] = fn
 
 
 def unregister(name):
-    pathgen_registry.pop(name, None)
+    PATHGEN_REGISTRY.pop(name, None)
 
 
-def load_preset_pymodules():
-    for f in glob.glob(os.path.join(presets_path, '*.py')):
+def init():
+    for f in glob.glob(os.path.join(PRESETS_PATH, '*.py')):
 
         base = os.path.basename(f)
         name = os.path.splitext(base)[0]
-        __import__(base)
+        __import__(name)

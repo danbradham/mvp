@@ -1,6 +1,7 @@
 from PySide import QtGui, QtCore
 from maya.OpenMayaUI import MQtUtil
 import shiboken
+import time
 
 
 
