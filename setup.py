@@ -28,13 +28,9 @@ if sys.argv[-1] == 'cheeseit!':
     sys.exit()
 
 elif sys.argv[-1] == 'testit!':
-    os.system('python setup.py sdist upload -r test')
+    os.system('python setup.py sdist upload -r pypitest')
     sys.exit()
 
-
-package_data = {
-    '': ['LICENSE', 'README.rst']
-}
 
 with open("README.rst") as f:
     readme = f.read()
