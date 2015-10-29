@@ -20,7 +20,7 @@ def get_info(pyfile):
 
     return info
 
-info = get_info('psforms/__init__.py')
+info = get_info('mvp/__init__.py')
 
 
 if sys.argv[-1] == 'cheeseit!':
