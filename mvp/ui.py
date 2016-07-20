@@ -8,6 +8,9 @@ from .utils import wait, get_maya_window
 from .presets import *
 
 
+DIALOG_STATE = None
+
+
 def new_dialog(parent_dialog):
 
     dialog = NewPresetForm.as_dialog(parent=parent_dialog)
@@ -19,7 +22,7 @@ def new_dialog(parent_dialog):
         v = Viewport.from_panel(panel)
         state = v.get_state()
         new_preset(name, state)
-        parent_dialog.update_presets
+        update_presets(parent_dialog, name)
 
     def identify_clicked():
         panel = dialog.panel.get_value()
@@ -40,7 +43,7 @@ def del_dialog(parent_dialog):
     def on_accept():
         name = parent_dialog.preset.get_value()
         del_preset(name)
-        parent_dialog.update_presets()
+        update_presets(parent_dialog)
 
     dialog = DelPresetForm.as_dialog(parent=parent_dialog)
     dialog.accepted.connect(on_accept)
@@ -48,10 +51,12 @@ def del_dialog(parent_dialog):
     dialog.show()
 
 
-def update_presets(dialog):
+def update_presets(dialog, name=None):
 
-    presets = ['Current Settings'] + [n for n, s in get_presets()]
+    presets = ['Current Settings'] + sorted([n for n, s in get_presets()])
     dialog.preset.set_options(presets)
+    if name:
+        dialog.preset.set_value(name)
 
 
 def show():
@@ -68,24 +73,20 @@ def show():
     del_button.clicked.connect(partial(del_dialog, dialog))
     dialog.preset.grid.addWidget(new_button, 1, 2)
     dialog.preset.grid.addWidget(del_button, 1, 3)
-
-    def update_presets():
-        presets = ['Current Settings'] + [n for n, s in get_presets()]
-        dialog.preset.set_options(presets)
-
-    dialog.update_presets = update_presets
-    dialog.update_presets()
+    update_presets(dialog)
 
     ext_options = ['qt.h264', 'png', 'Custom']
     extensions = ['.mov', '.png']
     ext_option = controls.IntOptionControl('Ext Option', labeled=False)
     ext_option.set_options(ext_options)
+    dialog.controls['ext_option'] = ext_option
     dialog.filename.grid.addWidget(ext_option.widget, 1, 2)
 
     path_options = ['Custom']
     path_options.extend(PATHGEN_REGISTRY.keys())
     path_option = controls.StringOptionControl('Path Option', labeled=False)
     path_option.set_options(path_options)
+    dialog.controls['path_option'] = path_option
     dialog.filename.grid.addWidget(path_option.widget, 1, 3)
 
     def get_path():
@@ -133,6 +134,9 @@ def show():
             ext = '.mov'
             path += ext
 
+        global DIALOG_STATE
+        DIALOG_STATE = dialog.get_value()
+
         playblast(
             path,
             data['camera'],
@@ -143,7 +147,18 @@ def show():
             compression='H.264' if ext == '.mov' else 'png',
         )
 
-    dialog.accepted.connect(on_accept)
+    def on_identify():
+        Viewport.active().identify()
 
+    identify_button = QtGui.QPushButton('Identify')
+    dialog.button_layout.addWidget(identify_button)
+    identify_button.clicked.connect(on_identify)
+
+    dialog.accepted.connect(on_accept)
     dialog.setStyleSheet(stylesheet)
+
+    # Restore state
+    global DIALOG_STATE
+    if DIALOG_STATE:
+        dialog.set_value(strict=False, **DIALOG_STATE)
     dialog.show()

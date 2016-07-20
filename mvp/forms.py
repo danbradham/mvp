@@ -7,7 +7,7 @@ class PlayblastForm(Form):
 
     meta = FormMetaData(
         title='MVP Playblast',
-        description='Better playblasting...',
+        description='Better playblasting? lol',
         header=True
     )
 

@@ -60,24 +60,18 @@ def playblast(filename, camera, state=None,
     pre_state = active.get_state()
 
     # Setup viewport
-    v = Viewport.new()
-    v.size = width, height
-    v.center()
-    wait(0.1)
     if state:
-        v.set_state(state)
-    v.camera = camera
-    v.playblast(
+        active.set_state(state)
+    active.camera = camera
+    active.playblast(
         filename,
         width=width,
         height=height,
         format=format,
         compression=compression)
 
-    # wait(1)
     # Restore previous state
     active.set_state(pre_state)
-    v.close()
 
 
 class EditorProperty(object):
