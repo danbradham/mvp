@@ -1,4 +1,4 @@
-from PySide import QtGui, QtCore
+from Qt import QtGui, QtCore, QtWidgets
 from psforms import stylesheet, controls
 import maya.cmds as cmds
 from functools import partial
@@ -29,7 +29,7 @@ def new_dialog(parent_dialog):
         v = Viewport.from_panel(panel)
         v.identify()
 
-    identify = QtGui.QPushButton('identify')
+    identify = QtWidgets.QPushButton('identify')
     identify.clicked.connect(identify_clicked)
 
     dialog.panel.grid.addWidget(identify, 1, 2)
@@ -67,9 +67,9 @@ def show():
         cameras.remove(c)
     dialog.camera.set_options(cameras)
 
-    new_button = QtGui.QPushButton('New')
+    new_button = QtWidgets.QPushButton('New')
     new_button.clicked.connect(partial(new_dialog, dialog))
-    del_button = QtGui.QPushButton('Delete')
+    del_button = QtWidgets.QPushButton('Delete')
     del_button.clicked.connect(partial(del_dialog, dialog))
     dialog.preset.grid.addWidget(new_button, 1, 2)
     dialog.preset.grid.addWidget(del_button, 1, 3)
@@ -150,7 +150,7 @@ def show():
     def on_identify():
         Viewport.active().identify()
 
-    identify_button = QtGui.QPushButton('Identify')
+    identify_button = QtWidgets.QPushButton('Identify')
     dialog.button_layout.addWidget(identify_button)
     identify_button.clicked.connect(on_identify)
 

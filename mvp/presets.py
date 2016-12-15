@@ -46,6 +46,7 @@ def del_preset(name):
 
 PATHGEN_REGISTRY = {}
 
+
 def register(name, fn):
     PATHGEN_REGISTRY[name] = fn
 

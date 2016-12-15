@@ -8,8 +8,7 @@ I really needed this...
 '''
 
 import os
-import shiboken
-from PySide import QtGui, QtCore
+from Qt import QtGui, QtCore, QtWidgets
 from .renderglobals import RenderGlobals
 from .utils import wait
 import maya.cmds as cmds
@@ -250,7 +249,7 @@ class Viewport(object):
 
     @property
     def screen_geometry(self):
-        qapp = QtGui.QApplication.instance()
+        qapp = QtWidgets.QApplication.instance()
         desktop = qapp.desktop()
         screen = desktop.screenNumber(self.widget)
         return desktop.screenGeometry(screen)
@@ -278,7 +277,11 @@ class Viewport(object):
     def widget(self):
         '''Returns a QWidget object for the viewport.'''
 
-        w = shiboken.wrapInstance(long(self._m3dview.widget()), QtGui.QWidget)
+        try:
+            from shiboken import wrapInstance
+        except ImportError:  # PySide2 compat
+            from shiboken2 import wrapInstance
+        w = wrapInstance(long(self._m3dview.widget()), QtWidgets.QWidget)
         return w
 
     @property
@@ -405,7 +408,7 @@ class Viewport(object):
         background = QtGui.QColor(*bgc)
         size = kwargs.get('size', 24)
 
-        label = QtGui.QLabel(text, parent=self.widget)
+        label = QtWidgets.QLabel(text, parent=self.widget)
         font = QtGui.QFont(font, size, weight)
         font.setStyleHint(QtGui.QFont.TypeWriter)
         label.setFont(font)
@@ -471,7 +474,7 @@ class Viewport(object):
             text=text,
             font='Helvetica',
             size=60,
-            position=(0,0),
+            position=(0, 0),
             weight='bold',
         )
         self._identifier_labels.append(label)

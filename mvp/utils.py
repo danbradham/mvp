@@ -1,15 +1,13 @@
-from PySide import QtGui, QtCore
-from maya.OpenMayaUI import MQtUtil
-import shiboken
+from Qt import QtWidgets
 import time
-
 
 
 def get_maya_window():
     '''Get Maya MainWindow as a QWidget.'''
-
-    ptr = long(MQtUtil.mainWindow())
-    return shiboken.wrapInstance(ptr, QtGui.QMainWindow)
+    for widget in QtWidgets.qApp.topLevelWidgets():
+        if widget.objectName() == 'MayaWindow':
+            return widget
+    raise RuntimeError('Could not locate MayaWindow...')
 
 
 def wait(delay=1):
@@ -20,4 +18,4 @@ def wait(delay=1):
     while True:
         if time.clock() - s >= delay:
             return
-        QtGui.qApp.processEvents()
+        QtWidgets.qApp.processEvents()
