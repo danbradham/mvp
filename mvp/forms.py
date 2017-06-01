@@ -8,7 +8,7 @@ class PlayblastForm(Form):
     meta = FormMetaData(
         title='MVP Playblast',
         description='Better playblasting? lol',
-        header=True
+        header=False
     )
 
     preset = StringOptionField('Preset', options=['Current Settings'])

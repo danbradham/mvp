@@ -1,14 +1,22 @@
 from Qt import QtGui, QtCore, QtWidgets
-from psforms import stylesheet, controls
+from psforms import controls
 import maya.cmds as cmds
+import os
 from functools import partial
 from .viewport import playblast, Viewport
 from .forms import PlayblastForm, NewPresetForm, DelPresetForm
-from .utils import wait, get_maya_window
+from .utils import get_maya_window
 from .presets import *
 
 
 DIALOG_STATE = None
+
+
+def stylesheet():
+    path = os.path.join(os.path.dirname(__file__), 'style.css')
+    with open(path, 'r') as f:
+        style = f.read()
+    return style
 
 
 def new_dialog(parent_dialog):
@@ -34,7 +42,7 @@ def new_dialog(parent_dialog):
 
     dialog.panel.grid.addWidget(identify, 1, 2)
     dialog.accepted.connect(on_accept)
-    dialog.setStyleSheet(stylesheet)
+    dialog.setStyleSheet(stylesheet())
     dialog.show()
 
 
@@ -47,7 +55,7 @@ def del_dialog(parent_dialog):
 
     dialog = DelPresetForm.as_dialog(parent=parent_dialog)
     dialog.accepted.connect(on_accept)
-    dialog.setStyleSheet(stylesheet)
+    dialog.setStyleSheet(stylesheet())
     dialog.show()
 
 
@@ -130,7 +138,7 @@ def show():
             state = get_preset(data['preset'])
 
         path, ext = os.path.splitext(data['filename'])
-        if not ext or not ext in ['.png', '.mov']:
+        if not ext or ext not in ['.png', '.mov']:
             ext = '.mov'
             path += ext
 
@@ -155,7 +163,7 @@ def show():
     identify_button.clicked.connect(on_identify)
 
     dialog.accepted.connect(on_accept)
-    dialog.setStyleSheet(stylesheet)
+    dialog.setStyleSheet(stylesheet())
 
     # Restore state
     global DIALOG_STATE

@@ -1,0 +1,52 @@
+QDialog,
+QWidget[form='true'] {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+QWidget[header='true'] {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+QLabel[title='true'] {
+    font: 24pt "Arial";
+}
+
+QLabel[description='true'] {
+    font: 12pt "Arial";
+}
+
+QLabel{
+    font: 10pt "Arial";
+}
+
+QLabel[valid='false']{
+    color: rgb(203, 40, 40);
+}
+
+QLabel[err='true']{
+    font: 8pt "Arial";
+    color: rgb(203, 40, 40);
+}
+
+QLabel[clickable='true']:hover{
+    font: 10pt "Arial";
+}
+
+QPushButton{
+    height: 24;
+}
+
+QComboBox {
+    padding-left: 13;
+    height: 30;
+}
+
+QLineEdit{
+    font: 10pt "Arial";
+    height: 30;
+    padding-left: 10;
+}

@@ -46,7 +46,7 @@ setup(
     license=info['license'],
     packages=find_packages(),
     package_data={
-        '': ['LICENSE', 'README.rst']
+        '': ['LICENSE', 'README.rst', '*.css'],
     },
     include_package_data=True,
     classifiers=(
