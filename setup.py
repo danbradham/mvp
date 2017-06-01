@@ -3,8 +3,21 @@
 
 import re
 from setuptools import setup, find_packages
-import os
+from subprocess import check_call
+import shutil
 import sys
+
+
+if sys.argv[-1] == 'cheeseit!':
+    check_call('nosetests -v')
+    check_call('python setup.py sdist bdist_wheel')
+    check_call('twine upload dist/*')
+    shutil.rmtree('dist')
+    sys.exit()
+elif sys.argv[-1] == 'testit!':
+    check_call('nosetests -v')
+    check_call('python setup.py sdist bdist_wheel upload -r pypitest')
+    sys.exit()
 
 
 def get_info(pyfile):
@@ -20,16 +33,8 @@ def get_info(pyfile):
 
     return info
 
+
 info = get_info('mvp/__init__.py')
-
-
-if sys.argv[-1] == 'cheeseit!':
-    os.system('python setup.py sdist upload')
-    sys.exit()
-
-elif sys.argv[-1] == 'testit!':
-    os.system('python setup.py sdist upload -r pypitest')
-    sys.exit()
 
 
 with open("README.rst") as f:
