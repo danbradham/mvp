@@ -9,13 +9,15 @@ import sys
 
 
 if sys.argv[-1] == 'cheeseit!':
-    check_call('nosetests -v')
-    check_call('python setup.py sdist bdist_wheel')
-    check_call('twine upload dist/*')
-    shutil.rmtree('dist')
+    try:
+        check_call('python setup.py sdist bdist_wheel')
+        check_call('twine upload dist/*')
+    finally:
+        shutil.rmtree('dist')
+        shutil.rmtree('build')
+        shutil.rmtree('mvp.egg-info')
     sys.exit()
 elif sys.argv[-1] == 'testit!':
-    check_call('nosetests -v')
     check_call('python setup.py sdist bdist_wheel upload -r pypitest')
     sys.exit()
 

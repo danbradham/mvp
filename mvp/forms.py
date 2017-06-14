@@ -16,8 +16,8 @@ class PlayblastForm(Form):
     camera = StringOptionField('Camera')
     resolution = Int2Field(
         'Resolution',
-        range1=(0, 1920),
-        range2=(0, 1080),
+        range1=(0, 8192),
+        range2=(0, 8192),
         default=(960, 540)
     )
 
