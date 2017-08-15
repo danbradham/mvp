@@ -3,12 +3,24 @@ from psforms.validators import required
 from psforms.fields import *
 
 
+class PostRenderForm(Form):
+
+    meta = FormMetaData(
+        title='Post Render',
+        description='Post Render Callbacks',
+        header=False,
+        labels_on_top=False,
+        columns=2
+    )
+
+
 class PlayblastForm(Form):
 
     meta = FormMetaData(
-        title='MVP Playblast',
-        description='Better playblasting? lol',
-        header=False
+        title='Review',
+        description='Playblast for review',
+        header=False,
+        subforms_as_groups=True
     )
 
     preset = StringOptionField('Preset', options=['Current Settings'])
@@ -20,6 +32,7 @@ class PlayblastForm(Form):
         range2=(0, 8192),
         default=(960, 540)
     )
+    postrender = PostRenderForm()
 
 
 class NewPresetForm(Form):

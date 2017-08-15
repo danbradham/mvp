@@ -1,5 +1,5 @@
 from Qt import QtGui, QtCore, QtWidgets
-from psforms import controls
+from psforms import controls, Form
 import maya.cmds as cmds
 import os
 from functools import partial
@@ -7,6 +7,7 @@ from .viewport import playblast, Viewport
 from .forms import PlayblastForm, NewPresetForm, DelPresetForm
 from .utils import get_maya_window
 from .presets import *
+from .hooks import *
 
 
 DIALOG_STATE = None
@@ -90,6 +91,7 @@ def show():
     dialog.controls['ext_option'] = ext_option
     dialog.filename.grid.addWidget(ext_option.widget, 1, 2)
 
+    # Add path generator functions
     path_options = ['Custom']
     path_options.extend(PATHGEN_REGISTRY.keys())
     path_option = controls.StringOptionControl('Path Option', labeled=False)
@@ -119,7 +121,7 @@ def show():
     def on_filename_change():
         path_option.set_value('Custom')
         name = dialog.filename.get_value()
-        ext = os.path.splitext(name)[-1]
+
         if name.endswith('.mov'):
             ext_option.set_value(0)
         elif name.endswith('.png'):
@@ -140,11 +142,12 @@ def show():
         path, ext = os.path.splitext(data['filename'])
         if not ext or ext not in ['.png', '.mov']:
             ext = '.mov'
-            path += ext
+        path += ext
 
         global DIALOG_STATE
         DIALOG_STATE = dialog.get_value()
 
+        # render
         playblast(
             path,
             data['camera'],
@@ -153,7 +156,15 @@ def show():
             height=data['resolution'][1],
             format='qt' if ext == '.mov' else 'image',
             compression='H.264' if ext == '.mov' else 'png',
+            viewer=False
         )
+
+        # post render
+        if 'postrender' in data:
+            for name, enabled in data['postrender'].items():
+                if enabled:
+                    fn = POSTRENDER_REGISTRY[name]
+                    fn(path)
 
     def on_identify():
         Viewport.active().identify()
@@ -161,6 +172,23 @@ def show():
     identify_button = QtWidgets.QPushButton('Identify')
     dialog.button_layout.addWidget(identify_button)
     identify_button.clicked.connect(on_identify)
+
+    # Add postrender hook checkboxes
+    if POSTRENDER_REGISTRY.keys():
+        for name, fn in POSTRENDER_REGISTRY.iteritems():
+            c = controls.BoolControl(
+                name,
+                label_on_top=False,
+                default=fn.default
+            )
+            dialog.postrender.add_control(
+                name,
+                controls.BoolControl(
+                    name,
+                    label_on_top=False,
+                    default=fn.default
+                )
+            )
 
     dialog.accepted.connect(on_accept)
     dialog.setStyleSheet(stylesheet())

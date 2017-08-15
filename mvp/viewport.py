@@ -53,7 +53,8 @@ def deferred_close(view):
 
 
 def playblast(filename, camera, state=None,
-              width=960, height=540, format='qt', compression='H.264'):
+              width=960, height=540, format='qt', compression='H.264',
+              viewer=True):
 
     active = Viewport.active()
     pre_state = active.get_state()
@@ -61,13 +62,16 @@ def playblast(filename, camera, state=None,
     # Setup viewport
     if state:
         active.set_state(state)
+
     active.camera = camera
     active.playblast(
         filename,
         width=width,
         height=height,
         format=format,
-        compression=compression)
+        compression=compression,
+        viewer=viewer
+    )
 
     # Restore previous state
     active.set_state(pre_state)
@@ -142,7 +146,7 @@ class Viewport(object):
     :param m3dview: OpenMayaUI.M3dView instance.
     '''
 
-    for p in EDITOR_PROPERTIES: # Initialize all editor properties
+    for p in EDITOR_PROPERTIES:  # Initialize all editor properties
         locals()[p] = EditorProperty(p)
 
     _identifier_labels = []
