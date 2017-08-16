@@ -8,7 +8,7 @@ def get_maya_window(cache=[]):
     if cache:
         return cache[0]
 
-    for widget in QtWidgets.qApp.topLevelWidgets():
+    for widget in QtWidgets.QApplication.instance().topLevelWidgets():
         if widget.objectName() == 'MayaWindow':
             cache.append(widget)
             return widget
