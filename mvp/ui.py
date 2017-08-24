@@ -197,4 +197,7 @@ def show():
     global DIALOG_STATE
     if DIALOG_STATE:
         dialog.set_value(strict=False, **DIALOG_STATE)
+        if DIALOG_STATE['path_option'] != 'Custom':
+            get_path()  # Refresh path if it is not custom
+
     dialog.show()
