@@ -2,7 +2,7 @@
     :target: https://readthedocs.org/projects/mvp/?badge=latest
     :alt: Documentation Status
 
-.. image:: https://pypip.in/version/mvp/badge.svg
+.. image:: https://img.shields.io/pypi/v/mvp.svg
     :target: https://testpypi.python.org/pypi/mvp/
     :alt: Latest Version
 
