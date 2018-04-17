@@ -22,8 +22,12 @@ class PlayblastForm(Form):
         header=False,
         subforms_as_groups=True
     )
-
     preset = StringOptionField('Preset', options=['Current Settings'])
+    capture_mode = ButtonOptionField(
+        'Capture Mode',
+        options=['sequence', 'snapshot'],
+        label_on_top=False
+    )
     filename = SaveFileField('Filename')
     camera = StringOptionField('Camera')
     resolution = Int2Field(

@@ -11,6 +11,11 @@ from .hooks import *
 
 
 DIALOG_STATE = None
+EXT_OPTIONS = {
+    'h.264': '.mov',
+    'png': '.png',
+    'Custom': ''
+}
 
 
 def stylesheet():
@@ -84,10 +89,8 @@ def show():
     dialog.preset.grid.addWidget(del_button, 1, 3)
     update_presets(dialog)
 
-    ext_options = ['qt.h264', 'png', 'Custom']
-    extensions = ['.mov', '.png']
-    ext_option = controls.IntOptionControl('Ext Option', labeled=False)
-    ext_option.set_options(ext_options)
+    ext_option = controls.StringOptionControl('Ext Option', labeled=False)
+    ext_option.set_options(list(EXT_OPTIONS.keys()))
     dialog.controls['ext_option'] = ext_option
     dialog.filename.grid.addWidget(ext_option.widget, 1, 2)
 
@@ -96,6 +99,19 @@ def show():
     path_options.extend(PATHGEN_REGISTRY.keys())
     path_option = controls.StringOptionControl('Path Option', labeled=False)
     path_option.set_options(path_options)
+
+    def capture_mode_changed():
+        mode = dialog.capture_mode.get_value()
+        if mode == 'sequence':
+            ext_option.set_options(list(EXT_OPTIONS.keys()))
+        else:
+            ext_option.set_options(list(EXT_OPTIONS.keys())[1:])
+        get_path()
+
+    dialog.capture_mode.changed.connect(capture_mode_changed)
+    dialog.capture_mode.label.hide()
+    dialog.capture_mode.grid.addWidget(QtWidgets.QLabel('Capture Mode'), 1, 0)
+
     dialog.controls['path_option'] = path_option
     dialog.filename.grid.addWidget(path_option.widget, 1, 3)
 
@@ -105,8 +121,8 @@ def show():
         if not path_fn:
             return
 
-        ext = extensions[ext_option.get_value()]
-        if ext == '.png':
+        ext = EXT_OPTIONS[ext_option.get_value()]
+        if dialog.capture_mode.get_value() == 'sequence' and ext == '.png':
             scene = os.path.splitext(cmds.file(q=True, shn=True, sn=True))[0]
             path = os.path.join(path_fn(), scene)
         else:
@@ -122,12 +138,13 @@ def show():
         path_option.set_value('Custom')
         name = dialog.filename.get_value()
 
-        if name.endswith('.mov'):
-            ext_option.set_value(0)
+        if (dialog.capture_mode.get_value() == 'sequence' and
+            name.endswith('.mov')):
+            ext_option.set_value('h.264')
         elif name.endswith('.png'):
-            ext_option.set_value(1)
+            ext_option.set_value('png')
         else:
-            ext_option.set_value(2)
+            ext_option.set_value('Custom')
 
     dialog.filename.changed.connect(on_filename_change)
 
@@ -140,17 +157,28 @@ def show():
             state = get_preset(data['preset'])
 
         path, ext = os.path.splitext(data['filename'])
-        if not ext or ext not in ['.png', '.mov']:
-            ext = '.mov'
-        path += ext
+        is_snapshot = data['capture_mode'] == 'snapshot'
+        is_png_sequence = False
+
+        if is_snapshot:
+            ext = '.png'
+            path += ext
+            output_path = path
+        else:
+            if ext in ['.png', '.tif', '.iff', '.jpeg', '.jpg']:
+                ext = '.png'
+                output_path = path
+                path += ext
+            else:
+                ext = '.mov'
+                path += ext
+                output_path = path
 
         global DIALOG_STATE
         DIALOG_STATE = dialog.get_value()
 
-        # render
-        playblast(
-            path,
-            data['camera'],
+        playblast_kwargs = dict(
+            camera=data['camera'],
             state=state,
             width=data['resolution'][0],
             height=data['resolution'][1],
@@ -158,6 +186,17 @@ def show():
             compression='H.264' if ext == '.mov' else 'png',
             viewer=False
         )
+        if data['capture_mode'] == 'snapshot':
+            playblast(
+                completeFilename=output_path,
+                frame=[cmds.currentTime(q=True)],
+                **playblast_kwargs
+            )
+        else:
+            playblast(
+                filename=output_path,
+                **playblast_kwargs
+            )
 
         # post render
         if 'postrender' in data:
@@ -201,3 +240,4 @@ def show():
             get_path()  # Refresh path if it is not custom
 
     dialog.show()
+    return dialog

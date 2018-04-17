@@ -52,9 +52,9 @@ def deferred_close(view):
     utils.executeDeferred(cmds.deleteUI, panel, panel=True)
 
 
-def playblast(filename, camera, state=None,
+def playblast(camera, state=None,
               width=960, height=540, format='qt', compression='H.264',
-              viewer=True):
+              viewer=True, **kwargs):
 
     active = Viewport.active()
     pre_state = active.get_state()
@@ -65,12 +65,12 @@ def playblast(filename, camera, state=None,
 
     active.camera = camera
     active.playblast(
-        filename,
         width=width,
         height=height,
         format=format,
         compression=compression,
-        viewer=viewer
+        viewer=viewer,
+        **kwargs
     )
 
     # Restore previous state
@@ -224,7 +224,7 @@ class Viewport(object):
         for k, v in cstate.iteritems():
             setattr(self, k, v)
 
-    def playblast(self, filename, **kwargs):
+    def playblast(self, **kwargs):
         '''Playblasting with reasonable default arguments. Automatically sets
         this viewport to the active view, ensuring that we playblast the
         correct view.
@@ -233,7 +233,6 @@ class Viewport(object):
         :param kwargs: Same kwargs as :func:`maya.cmds.playblast`'''
 
         playblast_kwargs = {
-            'filename': filename,
             'offScreen': False,
             'percent': 100,
             'quality': 100,
