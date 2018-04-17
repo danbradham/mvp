@@ -186,6 +186,10 @@ def show():
             compression='H.264' if ext == '.mov' else 'png',
             viewer=False
         )
+        output_dir = os.path.dirname(output_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         if data['capture_mode'] == 'snapshot':
             playblast(
                 completeFilename=output_path,
