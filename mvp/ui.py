@@ -2,6 +2,7 @@ from Qt import QtGui, QtCore, QtWidgets
 from psforms import controls, Form
 import maya.cmds as cmds
 import os
+import json
 from functools import partial
 from .viewport import playblast, Viewport
 from .forms import PlayblastForm, NewPresetForm, DelPresetForm
@@ -10,12 +11,38 @@ from .presets import *
 from .hooks import *
 
 
+MISSING = object()
 DIALOG_STATE = None
 EXT_OPTIONS = {
     'h.264': '.mov',
     'png': '.png',
     'Custom': ''
 }
+SCENE_STATE_NODE = 'time1'
+SCENE_STATE_ATTR = 'mvp_dialog_state'
+SCENE_STATE_PATH = SCENE_STATE_NODE + '.' + SCENE_STATE_ATTR
+
+
+def get_scene_dialog_state(default=MISSING):
+    '''Retrieve dialog state from a maya scene'''
+
+    if cmds.objExists(SCENE_STATE_PATH):
+        encoded_state = cmds.getAttr(SCENE_STATE_PATH)
+        if encoded_state:
+            return json.loads(encoded_state)
+
+    if default is not MISSING:
+        return default
+
+
+def set_scene_dialog_state(state):
+    '''Store dialog state in a maya scene'''
+
+    if not cmds.objExists(SCENE_STATE_PATH):
+        cmds.addAttr(SCENE_STATE_NODE, ln=SCENE_STATE_ATTR, dataType='string')
+
+    encoded_state = json.dumps(state)
+    cmds.setAttr(SCENE_STATE_PATH, encoded_state, type='string')
 
 
 def stylesheet():
@@ -155,6 +182,7 @@ def show():
             state = Viewport.active().get_state()
         else:
             state = get_preset(data['preset'])
+            state.pop('camera')
 
         path, ext = os.path.splitext(data['filename'])
         is_snapshot = data['capture_mode'] == 'snapshot'
@@ -176,6 +204,7 @@ def show():
 
         global DIALOG_STATE
         DIALOG_STATE = dialog.get_value()
+        set_scene_dialog_state(DIALOG_STATE)
 
         playblast_kwargs = dict(
             camera=data['camera'],
@@ -237,10 +266,10 @@ def show():
     dialog.setStyleSheet(stylesheet())
 
     # Restore state
-    global DIALOG_STATE
-    if DIALOG_STATE:
-        dialog.set_value(strict=False, **DIALOG_STATE)
-        if DIALOG_STATE['path_option'] != 'Custom':
+    dialog_state = get_scene_dialog_state(DIALOG_STATE)
+    if dialog_state:
+        dialog.set_value(strict=False, **dialog_state)
+        if dialog_state['path_option'] != 'Custom':
             get_path()  # Refresh path if it is not custom
 
     dialog.show()

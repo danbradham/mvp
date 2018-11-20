@@ -45,6 +45,13 @@ EDITOR_PROPERTIES = [
     'gpuCacheDisplayFilter'
 ]
 
+CAMERA_PROPERTIES = [
+    'displayFilmGate', 'displayResolution', 'displayGateMask',
+    'displayFieldChart', 'displaySafeAction', 'displaySafeTitle',
+    'displayFilmPivot', 'displayFilmOrigin', 'overscan',
+    'displayGateMaskOpacity', 'displayGateMaskColor'
+]
+
 
 def deferred_close(view):
     panel = view.panel
@@ -119,6 +126,38 @@ class EditorProperty(object):
             )
 
 
+class CameraProperty(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, inst, typ=None):
+        '''Gets a model panels camera property'''
+
+        if not inst:
+            return self
+
+        attr = inst.camera + '.' + self.name
+        value = cmds.getAttr(attr)
+        if isinstance(value, list):
+            if len(value) == 1 and isinstance(value[0], (list, tuple)):
+                value = value[0]
+        return value
+
+    def __set__(self, inst, value):
+        '''Sets a model panels camera property'''
+
+        attr = inst.camera + '.' + self.name
+        try:
+            cmds.setAttr(attr, value)
+        except RuntimeError:
+            cmds.setAttr(attr, *value)
+        except RuntimeError:
+            cmds.setAttr(attr, value, type='string')
+        except:
+            raise
+
+
 class Viewport(object):
     '''A convenient api for manipulating Maya 3D Viewports. While you can
     manually construct a Viewport from an OpenMayaUI.M3dView instance, it is
@@ -146,8 +185,11 @@ class Viewport(object):
     :param m3dview: OpenMayaUI.M3dView instance.
     '''
 
-    for p in EDITOR_PROPERTIES:  # Initialize all editor properties
+    for p in EDITOR_PROPERTIES:
         locals()[p] = EditorProperty(p)
+
+    for p in CAMERA_PROPERTIES:
+        locals()[p] = CameraProperty(p)
 
     _identifier_labels = []
 
@@ -198,15 +240,15 @@ class Viewport(object):
     def properties(self):
         '''A list including all editor property names.'''
 
-        return EDITOR_PROPERTIES
+        return EDITOR_PROPERTIES + CAMERA_PROPERTIES
 
     def get_state(self):
         '''Get a state dictionary of all modelEditor properties.'''
 
         active_state = {}
-        for ep in EDITOR_PROPERTIES:
-            active_state[ep] = getattr(self, ep)
         active_state['RenderGlobals'] = RenderGlobals.get_state()
+        for ep in EDITOR_PROPERTIES + CAMERA_PROPERTIES:
+            active_state[ep] = getattr(self, ep)
 
         return active_state
 
@@ -353,18 +395,6 @@ class Viewport(object):
 
         self._m3dview.setCamera(camera)
         self._m3dview.refresh(False, False)
-
-    @property
-    def depthOfField(self):
-        '''Get active camera depthOfField attribute'''
-
-        return cmds.getAttr(self.camera + '.depthOfField')
-
-    @depthOfField.setter
-    def depthOfField(self, value):
-        '''Set active camera depthOfField attribute'''
-
-        cmds.setAttr(self.camera + '.depthOfField', value)
 
     @property
     def background(self):
