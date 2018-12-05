@@ -148,14 +148,27 @@ class CameraProperty(object):
         '''Sets a model panels camera property'''
 
         attr = inst.camera + '.' + self.name
+
+        locked = cmds.getAttr(attr, lock=True)
+        if locked:
+            return
+
+        has_connections = cmds.listConnections(attr, s=True, d=False)
+        if has_connections:
+            return
+
         try:
-            cmds.setAttr(attr, value)
-        except RuntimeError:
-            cmds.setAttr(attr, *value)
-        except RuntimeError:
-            cmds.setAttr(attr, value, type='string')
-        except:
-            raise
+            if isinstance(value, (int, float)):
+                cmds.setAttr(attr, value)
+            elif isinstance(value, basestring):
+                cmds.setAttr(attr, value, type='string')
+            elif isinstance(value, (list, tuple)):
+                cmds.setAttr(attr, *value)
+            else:
+                cmds.setAttr(attr, value)
+        except Except as e:
+            print('Failed to set state: %s %s' % (attr, value))
+            print(e)
 
 
 class Viewport(object):
