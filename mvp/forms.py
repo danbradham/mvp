@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from psforms import *
 from psforms.validators import required
 from psforms.fields import *

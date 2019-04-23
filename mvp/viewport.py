@@ -7,7 +7,6 @@ MVP - Maya Viewport API
 I really needed this...
 '''
 
-import os
 from Qt import QtGui, QtCore, QtWidgets
 from .renderglobals import RenderGlobals
 from .utils import wait
@@ -15,7 +14,6 @@ import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
 import maya.utils as utils
-
 
 
 EDITOR_PROPERTIES = [

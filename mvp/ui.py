@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
+
 from Qt import QtGui, QtCore, QtWidgets
 from psforms import controls, Form
-import maya.cmds as cmds
+from psforms.form import generate_form
+from maya import cmds, mel
 import os
 import json
 from functools import partial
@@ -21,6 +24,37 @@ EXT_OPTIONS = {
 SCENE_STATE_NODE = 'time1'
 SCENE_STATE_ATTR = 'mvp_dialog_state'
 SCENE_STATE_PATH = SCENE_STATE_NODE + '.' + SCENE_STATE_ATTR
+
+
+def get_sound_track():
+    playback_slider = mel.eval('$tmpVar=$gPlayBackSlider')
+    return cmds.timeControl(playback_slider, query=True, sound=True)
+
+
+def integration_to_group(integration, parent=None):
+    '''Create a group for the integration'''
+
+    form = generate_form(
+        integration.name,
+        integration.fields(),
+        title=integration.name.title(),
+        description=integration.description or 'No description',
+        icon=integration.icon,
+        hearer=False,
+        columns=integration.columns
+    )
+    group = form.as_group(parent=parent)
+    group.title.setIcon(QtGui.QIcon(integration.icon))
+    group.integration = integration
+    group.set_enabled(integration.enabled_by_default)
+
+    def try_to_toggle(value):
+        enabled = integration.set_enabled(value)
+        group.set_enabled(enabled)
+
+    group.toggled.connect(try_to_toggle)
+
+    return group
 
 
 def get_scene_dialog_state(default=MISSING):
@@ -158,15 +192,21 @@ def show():
         path += ext
         dialog.filename.set_value(path)
 
+        for integration in dialog.integrations.values():
+            print(integration, integration.enabled)
+            if integration.enabled:
+                integration.on_filename_changed(dialog, path)
+
     ext_option.changed.connect(get_path)
     path_option.changed.connect(get_path)
 
     def on_filename_change():
+        print('on_filename_change')
         path_option.set_value('Custom')
         name = dialog.filename.get_value()
 
-        if (dialog.capture_mode.get_value() == 'sequence' and
-            name.endswith('.mov')):
+        if (dialog.capture_mode.get_value() == 'sequence'
+            and name.endswith('.mov')):
             ext_option.set_value('h.264')
         elif name.endswith('.png'):
             ext_option.set_value('png')
@@ -213,11 +253,16 @@ def show():
             height=data['resolution'][1],
             format='qt' if ext == '.mov' else 'image',
             compression='H.264' if ext == '.mov' else 'png',
-            viewer=False
+            viewer=False,
+            sound=get_sound_track()
         )
         output_dir = os.path.dirname(output_path)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+
+        for name, integration in dialog.integrations.items():
+            if integration.enabled:
+                integration.before_playblast(data)
 
         if data['capture_mode'] == 'snapshot':
             playblast(
@@ -238,6 +283,10 @@ def show():
                     fn = POSTRENDER_REGISTRY[name]
                     fn(path)
 
+        for name, integration in dialog.integrations.items():
+            if integration.enabled:
+                integration.after_playblast(data)
+
     def on_identify():
         Viewport.active().identify()
 
@@ -246,21 +295,36 @@ def show():
     identify_button.clicked.connect(on_identify)
 
     # Add postrender hook checkboxes
-    if POSTRENDER_REGISTRY.keys():
-        for name, fn in POSTRENDER_REGISTRY.iteritems():
-            c = controls.BoolControl(
+    for name, fn in POSTRENDER_REGISTRY.items():
+        c = controls.BoolControl(
+            name,
+            label_on_top=False,
+            default=fn.default
+        )
+        dialog.postrender.add_control(
+            name,
+            controls.BoolControl(
                 name,
                 label_on_top=False,
                 default=fn.default
             )
-            dialog.postrender.add_control(
-                name,
-                controls.BoolControl(
-                    name,
-                    label_on_top=False,
-                    default=fn.default
-                )
-            )
+        )
+
+    # Add integration groups
+    dialog.integrations = {}
+    for name, integration in INTEGRATION_REGISTRY.items():
+        inst = integration()
+        group = integration_to_group(inst)
+        dialog.add_form(name, group)
+        dialog.integrations[name] = inst
+        for control_name, control in group.controls.items():
+            method = getattr(inst, 'on_' + control_name + '_changed', None)
+            def slot_method(form, method, control):
+                def slot():
+                    method(form, control.get_value())
+                return slot
+            if method:
+                control.changed.connect(slot_method(dialog, method, control))
 
     dialog.accepted.connect(on_accept)
     dialog.setStyleSheet(stylesheet())
