@@ -415,17 +415,14 @@ class PlayblastDialog(object):
         '''Update contol values when filename changes.'''
 
         self.form.path_option.set_value('Custom')
+
         name = self.form.filename.get_value()
         capture_mode = self.form.capture_mode.get_value()
 
-        is_h264 = capture_mode == 'sequence' and name.endswith('.mov')
-        is_png = name.endswith('.png')
-
-        if is_h264:
-            self.form.ext_option.set_value('h.264')
-
-        if is_png:
-            self.form.ext_option.set_value('png')
+        for ext in hooks.extension.values():
+            if name.endswith(ext.ext):
+                self.form.ext_option.set_value(ext.name)
+                return
 
     def on_identify(self):
         '''Highlight the active viewport.'''
