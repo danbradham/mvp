@@ -9,7 +9,7 @@ I really needed this...
 
 from Qt import QtGui, QtCore, QtWidgets
 from .renderglobals import RenderGlobals
-from .utils import wait
+from .utils import wait, viewport_state
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
@@ -57,29 +57,43 @@ def deferred_close(view):
     utils.executeDeferred(cmds.deleteUI, panel, panel=True)
 
 
-def playblast(camera, state=None,
-              width=960, height=540, format='qt', compression='H.264',
-              viewer=True, **kwargs):
+def playblast(camera=None, state=None, **kwargs):
+    '''Playblast the active viewport.
+
+    Arguments:
+        :param camera: Camera to playblast
+        :param state: Viewport state
+
+    Playblast Arguments:
+        :param width: Resolution width
+        :param height: Resolution height
+        :param format: Render format like qt or image
+        :param compression: Render compression
+        :param viewer: Launch the default viewer afterwards
+    '''
+
+    playblast_kwargs = {
+        'offScreen': False,
+        'percent': 100,
+        'quality': 100,
+        'viewer': False,
+        'width': 960,
+        'height': 540,
+        'framePadding': 4,
+        'format': 'qt',
+        'compression': 'H.264',
+        'forceOverwrite': True,
+    }
+    playblast_kwargs.update(kwargs)
 
     active = Viewport.active()
-    pre_state = active.get_state()
+    state = state or active.get_state()
 
-    # Setup viewport
-    if state:
-        active.set_state(state)
+    if camera:
+        state['camera'] = camera
 
-    active.camera = camera
-    active.playblast(
-        width=width,
-        height=height,
-        format=format,
-        compression=compression,
-        viewer=viewer,
-        **kwargs
-    )
-
-    # Restore previous state
-    active.set_state(pre_state)
+    with viewport_state(active, state):
+        cmds.playblast(**playblast_kwargs)
 
 
 class EditorProperty(object):
@@ -277,31 +291,17 @@ class Viewport(object):
         for k, v in cstate.iteritems():
             setattr(self, k, v)
 
-    def playblast(self, **kwargs):
+    def playblast(self, camera=None, state=None, **kwargs):
         '''Playblasting with reasonable default arguments. Automatically sets
         this viewport to the active view, ensuring that we playblast the
         correct view.
 
-        :param filename: Absolute path to output file
         :param kwargs: Same kwargs as :func:`maya.cmds.playblast`'''
-
-        playblast_kwargs = {
-            'offScreen': False,
-            'percent': 100,
-            'quality': 100,
-            'viewer': True,
-            'width': 960,
-            'height': 540,
-            'framePadding': 4,
-            'format': 'qt',
-            'compression': 'H.264',
-            'forceOverwrite': True,
-        }
-        playblast_kwargs.update(kwargs)
 
         if not self.focus:
             self.focus = True
-        cmds.playblast(**playblast_kwargs)
+
+        playblast(camera=None, state=None, **kwargs)
 
     @property
     def screen_geometry(self):
@@ -560,7 +560,7 @@ class Viewport(object):
                 print v.panel
         '''
 
-        for index in xrange(cls.count()):
+        for index in range(cls.count()):
             m3dview = OpenMayaUI.M3dView()
             OpenMayaUI.M3dView.get3dView(index, m3dview)
             yield cls(m3dview)
