@@ -2,6 +2,7 @@
 
 from Qt import QtWidgets
 import time
+from contextlib import contextmanager
 
 
 def get_maya_window(cache=[]):
@@ -29,3 +30,26 @@ def wait(delay=1):
             return
 
         app.processEvents()
+
+
+@contextmanager
+def viewport_state(viewport, state):
+    '''Sets a viewports state options for the duration of the context.
+
+    Example:
+
+        # Turn off the display of nurbsCurves
+        viewport = Viewport.active()
+        state = viewport.state()
+        state['nurbsCurves'] = False
+
+        with viewport_state(viewport, state):
+            # Do something with nurbsCurves off
+    '''
+
+    previous_state = viewport.get_state()
+    try:
+        viewport.set_state(state)
+        yield
+    finally:
+        viewport.set_state(previous_state)
