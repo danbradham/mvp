@@ -6,10 +6,11 @@ MVP - Maya Viewport API
 
 I really needed this...
 '''
+from __future__ import print_function, absolute_import
 
 from Qt import QtGui, QtCore, QtWidgets
 from .renderglobals import RenderGlobals
-from .utils import wait, viewport_state
+from .utils import wait, viewport_state, get_maya_window
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
@@ -216,11 +217,9 @@ class Viewport(object):
     for p in CAMERA_PROPERTIES:
         locals()[p] = CameraProperty(p)
 
-    _identifier_labels = []
-
     def __init__(self, m3dview):
         self._m3dview = m3dview
-        self.identify = self._identify
+        self.highlight = self._highlight
 
     def __hash__(self):
         return hash(self._m3dview)
@@ -422,63 +421,11 @@ class Viewport(object):
 
         cmds.displayRGBColor('background', *values)
 
-    def _draw_label(self, **kwargs):
-        '''Draw text in viewport and return a QLabel. Used for identifying
-        viewports.
+    def _highlight(self, msec=2000):
+        '''Draws an identifier in a Viewport.'''
 
-        :param text: String to display in viewport
-        :param color: Color of text
-        :param size: Point Size of text
-        :param position: Position of text in viewport
-        :param weight: Weight of text (light, normal, demibold, bold, black)
-        :param background: Background color (R, G, B)
-        :param callback: Text callback
-        '''
-
-        text = kwargs.get('text', 'No Text')
-        color = kwargs.get('color', (255, 255, 255))
-        color = QtGui.QColor(*color)
-        font = kwargs.get('font', 'Monospace')
-        position = kwargs.get('position', (0, 0))
-        weight = {
-            'light': QtGui.QFont.Light,
-            'normal': QtGui.QFont.Normal,
-            'demibold': QtGui.QFont.DemiBold,
-            'bold': QtGui.QFont.Bold,
-            'black': QtGui.QFont.Black,
-        }[kwargs.get('weight', 'bold')]
-        bgc = kwargs.get('background', self.background)
-        bgc = bgc[0] * 255, bgc[1] * 255, bgc[2] * 255
-        background = QtGui.QColor(*bgc)
-        size = kwargs.get('size', 24)
-
-        label = QtWidgets.QLabel(text, parent=self.widget)
-        font = QtGui.QFont(font, size, weight)
-        font.setStyleHint(QtGui.QFont.TypeWriter)
-        label.setFont(font)
-        label.setAutoFillBackground(True)
-        label.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft)
-        palette = QtGui.QPalette()
-        palette.setColor(label.backgroundRole(), background)
-        palette.setColor(label.foregroundRole(), color)
-        label.setPalette(palette)
-        label.show()
-        label.setMinimumSize(label.minimumSizeHint())
-        label.move(*position)
-        return label
-
-    def _identify(self, delay=2000):
-        '''Shows identifier only in this Viewport. Replaces classmethod
-        identify on __init__ of a Viewport instance::
-
-            v = Viewport.active()
-            v.identify()
-
-        :param delay: Length of time in ms to leave up identifier
-        '''
-
-        self.draw_identifier(self.panel)
-        QtCore.QTimer.singleShot(delay, self.clear_identifiers)
+        highlight = Highlight(self)
+        highlight.display(msec)
 
     @classmethod
     def identify(cls, delay=2000):
@@ -489,39 +436,16 @@ class Viewport(object):
         :param delay: Length of time in ms to leave up identifier
         '''
 
-        cls.show_identifiers()
-        QtCore.QTimer.singleShot(delay, cls.clear_identifiers)
+        cls.highlight()
 
     @classmethod
-    def show_identifiers(cls):
+    def highlight(cls, msec=2000):
         '''Draws QLabels indexing each Viewport. These indices can be used to
         with :method:`get` to return a corresponding Viewport object.'''
 
-        for index, viewport in cls.enumerate():
-            viewport.draw_identifier(viewport.panel)
-
-    @classmethod
-    def clear_identifiers(cls):
-        '''Remove all the QLabels drawn by show_identifiers.'''
-        while True:
-            try:
-                label = cls._identifier_labels.pop()
-                label.setParent(None)
-                del(label)
-            except IndexError:
-                break
-
-    def draw_identifier(self, text):
-        '''Draws an identifier in a Viewport.'''
-
-        label = self._draw_label(
-            text=text,
-            font='Helvetica',
-            size=60,
-            position=(0, 0),
-            weight='bold',
-        )
-        self._identifier_labels.append(label)
+        for viewport in cls.iter():
+            if viewport.widget.isVisible():
+                viewport.highlight(msec)
 
     @staticmethod
     def count():
@@ -564,3 +488,50 @@ class Viewport(object):
             m3dview = OpenMayaUI.M3dView()
             OpenMayaUI.M3dView.get3dView(index, m3dview)
             yield cls(m3dview)
+
+
+class Highlight(QtWidgets.QDialog):
+    '''Outline a viewport panel and show the panel name.'''
+
+    def __init__(self, view):
+        super(Highlight, self).__init__(parent=get_maya_window())
+        self.view = view
+        self.widget = self.view.widget
+
+        self.setWindowFlags(
+            self.windowFlags() |
+            QtCore.Qt.FramelessWindowHint
+        )
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        wrect = self.widget.geometry()
+        rect = QtCore.QRect(
+            self.widget.mapToGlobal(
+                wrect.topLeft(),
+            ),
+            wrect.size(),
+        )
+        self.setGeometry(
+            rect
+        )
+
+    def display(self, msec):
+        w = QtWidgets.QApplication.instance().activeWindow()
+        self.show()
+        w.raise_()
+        QtCore.QTimer.singleShot(msec, self.accept)
+
+    def paintEvent(self, event):
+
+        painter = QtGui.QPainter(self)
+
+        pen = QtGui.QPen(QtCore.Qt.red)
+        pen.setWidth(8)
+        font = QtGui.QFont()
+        font.setPointSize(48)
+        painter.setFont(font)
+        painter.setPen(pen)
+        painter.setBrush(QtCore.Qt.transparent)
+
+        painter.drawRect(self.rect())
+        painter.drawText(self.rect(), QtCore.Qt.AlignCenter, self.view.panel)
