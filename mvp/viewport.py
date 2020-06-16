@@ -94,8 +94,9 @@ def playblast(camera=None, state=None, **kwargs):
         state['camera'] = camera
 
     with viewport_state(active, state):
-        cmds.playblast(**playblast_kwargs)
+        file = cmds.playblast(**playblast_kwargs)
 
+    return file
 
 class EditorProperty(object):
 
@@ -220,6 +221,7 @@ class Viewport(object):
     def __init__(self, m3dview):
         self._m3dview = m3dview
         self.highlight = self._highlight
+        self.identify = self._highlight
 
     def __hash__(self):
         return hash(self._m3dview)
@@ -355,9 +357,11 @@ class Viewport(object):
     def index(self):
         '''Returns the index of the viewport'''
 
-        for i, view in Viewport.enumerate():
+        i = 0
+        for i, view in Viewport.iter():
             if self == view:
                 return i
+            i += 1
         raise IndexError('Can not find index')
 
     @property
