@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from functools import partial
 
 
 class Integration(object):
