@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from Qt import QtGui, QtCore, QtWidgets
-from psforms import controls, Form
+from Qt import QtCore, QtGui, QtWidgets
+from psforms import controls
+from psforms.widgets import FormGroup, FormWidget
 from psforms.form import generate_form
 from maya import cmds, mel
 import os
@@ -9,7 +10,7 @@ import json
 from functools import partial
 from .viewport import playblast, Viewport
 from .forms import PlayblastForm, NewPresetForm, DelPresetForm
-from .utils import get_maya_window, viewport_state
+from .utils import get_maya_window
 from .presets import *
 from . import hooks
 
@@ -61,30 +62,68 @@ def get_framerange():
     )
 
 
-def integration_to_group(integration, parent=None):
-    '''Create a group for the integration'''
+class IntegrationUI(object):
+    '''Lazily generated UI Group for an Integration class.'''
 
-    form = generate_form(
-        integration.name,
-        integration.fields(),
-        title=integration.name.title(),
-        description=integration.description or 'No description',
-        icon=integration.icon,
-        hearer=False,
-        columns=integration.columns
-    )
-    group = form.as_group(parent=parent)
-    group.title.setIcon(QtGui.QIcon(integration.icon))
-    group.integration = integration
-    group.set_enabled(integration.enabled_by_default)
+    def __init__(self, integration, parent=None):
+        self.integration = integration
+        self.parent = parent
+        self._group = None
+        self._form = None
 
-    def try_to_toggle(value):
-        enabled = integration.set_enabled(value)
-        group.set_enabled(enabled)
+    def try_to_toggle(self, value):
+        enabled = self.integration.set_enabled(value)
 
-    group.toggled.connect(try_to_toggle)
+        if enabled and self.group.widget is not self.form:
+            self.group.set_widget(self.form)
 
-    return group
+        self.group.set_enabled(enabled)
+
+    @property
+    def group(self):
+        if not self._group:
+            self._group = FormGroup(
+                self.integration.name,
+                FormWidget(self.integration.name),  # Stub widget
+                parent=self.parent,
+            )
+            self._group.title.setIcon(QtGui.QIcon(self.integration.icon))
+            self._group.toggled.connect(self.try_to_toggle)
+            self.try_to_toggle(self.integration.enabled)
+        return self._group
+
+    @property
+    def form(self):
+        if not self._form:
+            form = generate_form(
+                name=self.integration.name,
+                fields=self.integration.fields(),
+                title=self.integration.name.title(),
+                description=self.integration.description or 'No description',
+                icon=self.integration.icon,
+                header=False,
+                columns=self.integration.columns,
+            )
+            self._form = form.as_widget()
+
+            # Attach controls to integration methods
+            for control_name, control in self._form.controls.items():
+                method = getattr(
+                    self.integration,
+                    'on_' + control_name + '_changed',
+                    None,
+                )
+
+                def slot_method(form, method, control):
+                    def slot():
+                        method(form, control.get_value())
+                    return slot
+
+                if method:
+                    control.changed.connect(
+                        slot_method(self._form, method, control)
+                    )
+        return self._form
 
 
 def get_scene_dialog_state(default=MISSING):
@@ -167,7 +206,10 @@ def update_presets(dialog, name=None):
 class PlayblastDialog(object):
 
     def __init__(self):
-        self.form = PlayblastForm.as_dialog(parent=get_maya_window())
+        self.form = PlayblastForm.as_dialog(
+            frameless=False,
+            parent=get_maya_window(),
+        )
         self.setup_controls()
         self.setup_connections()
         self.restore_form_state()
@@ -180,13 +222,32 @@ class PlayblastDialog(object):
         '''Store form state in scene'''
         global DIALOG_STATE
         DIALOG_STATE = self.form.get_value()
+
+        # Update integration ui states
+        for name, inst in self.integrations.items():
+            if not inst.enabled:
+                # Only store integration state for enabled integrations
+                DIALOG_STATE.pop(name, None)
+
         set_scene_dialog_state(DIALOG_STATE)
 
     def restore_form_state(self):
         '''Restore form state from scene'''
         dialog_state = get_scene_dialog_state(DIALOG_STATE)
         if dialog_state:
+
+            # Update integration ui states
+            for name, inst in self.integrations.items():
+                state = dialog_state.pop(name, None)
+                if state:
+                    inst.ui.try_to_toggle(True)
+                    inst.ui.group.set_value(**state)
+                else:
+                    inst.ui.try_to_toggle(False)
+
+            # Update base dialog state
             self.form.set_value(strict=False, **dialog_state)
+
             if dialog_state['path_option'] != 'Custom':
                 self.update_path()
 
@@ -196,7 +257,8 @@ class PlayblastDialog(object):
         # Camera options
         cameras = cmds.ls(cameras=True)
         for c in ['frontShape', 'sideShape', 'topShape']:
-            cameras.remove(c)
+            if c in cameras:
+                cameras.remove(c)
         self.form.camera.set_options(cameras)
 
         # Viewport Presets
@@ -238,10 +300,11 @@ class PlayblastDialog(object):
 
         # Identify button
         identify_button = QtWidgets.QPushButton('Identify')
-        self.form.button_layout.addWidget(identify_button)
         identify_button.clicked.connect(self.on_identify)
+        self.form.button_layout.addWidget(identify_button)
 
         # Add postrender hook checkboxes
+        self.form.postrender.after_toggled.connect(self.auto_resize)
         for postrender in hooks.postrender.values():
             self.form.postrender.add_control(
                 postrender.name,
@@ -253,22 +316,20 @@ class PlayblastDialog(object):
             )
 
         # Add integration groups
-        self.form.integrations = {}
+        self.integrations = {}
         for name, integration in hooks.integration.items():
             inst = integration()
-            group = integration_to_group(inst)
-            self.form.add_form(name, group)
-            self.form.integrations[name] = inst
-            for control_name, control in group.controls.items():
-                method = getattr(inst, 'on_' + control_name + '_changed', None)
-                def slot_method(form, method, control):
-                    def slot():
-                        method(form, control.get_value())
-                    return slot
-                if method:
-                    control.changed.connect(
-                        slot_method(dialog, method, control)
-                    )
+            inst.ui = IntegrationUI(inst, self.form)
+            inst.ui.group.after_toggled.connect(self.auto_resize)
+            inst.form = inst.ui.group
+            self.form.add_form(
+                name,
+                inst.ui.group,
+            )
+            self.integrations[name] = inst
+
+    def auto_resize(self):
+        QtCore.QTimer.singleShot(20, self.form.adjustSize)
 
     def setup_connections(self):
         '''Connect form controls to callbacks'''
@@ -286,8 +347,6 @@ class PlayblastDialog(object):
 
     def on_ext_changed(self):
         '''Called when the extension changes.'''
-        ext_opt = self.form.ext_option.get_value()
-        extension = hooks.extension.get(ext_opt)
         self.update_path()
 
     def update_path(self):
@@ -330,7 +389,7 @@ class PlayblastDialog(object):
         self.form.filename.set_value(path)
 
         # Notify integrations of filename change
-        for integration in self.form.integrations.values():
+        for integration in self.integrations.values():
             if integration.enabled:
                 integration.on_filename_changed(self.form, path)
 
@@ -341,9 +400,9 @@ class PlayblastDialog(object):
         data = self.form.get_value()
 
         # Execute integration before_playblast
-        for name, integration in self.form.integrations.items():
+        for name, integration in self.integrations.items():
             if integration.enabled:
-                integration.before_playblast(data)
+                integration.before_playblast(integration.form, data)
 
         # Get viewport state
         if data['preset'] == 'Current Settings':
@@ -358,34 +417,39 @@ class PlayblastDialog(object):
 
         if data['capture_mode'] == 'snapshot':
             # Render snapshot
-            playblast(
+            data['start_frame'] = cmds.currentTime(q=True)
+            data['end_frame'] = data['start_frame']
+            out_file = playblast(
                 camera=data['camera'],
                 state=state,
                 format='image',
                 compression='png',
                 completeFilename=data['filename'],
-                frame=[cmds.currentTime(q=True)],
+                frame=[data['start_frame']],
                 width=data['resolution'][0],
                 height=data['resolution'][1],
             )
         else:
             # Call extension handler
             extension = hooks.extension.get(data['ext_option'])
-            options = extension.options or {}
             framerange = get_framerange()
-            extension.handler(
+            data['start_frame'] = framerange[0]
+            data['end_frame'] = framerange[1]
+            data['fps'] = get_fps()
+            data['sound'] = get_sound_track()
+            out_file = extension.handler(
                 data=dict(
                     state=state,
                     camera=data['camera'],
                     filename=data['filename'],
                     width=data['resolution'][0],
                     height=data['resolution'][1],
-                    sound=get_sound_track(),
-                    fps=get_fps(),
-                    start_frame=framerange[0],
-                    end_frame=framerange[1],
+                    sound=data['sound'],
+                    fps=data['fps'],
+                    start_frame=data['start_frame'],
+                    end_frame=data['end_frame'],
                 ),
-                options=extension.options,
+                options=extension.options or {},
             )
 
         # postrender callbacks
@@ -396,9 +460,10 @@ class PlayblastDialog(object):
                     postrender.handler(data['filename'])
 
         # integrations after_playblast
-        for name, integration in self.form.integrations.items():
+        data['filename'] = out_file
+        for name, integration in self.integrations.items():
             if integration.enabled:
-                integration.after_playblast(data)
+                integration.after_playblast(integration.form, data)
 
     def on_capture_mode_changed(self):
         '''Update path when capture_mode changes.'''
@@ -417,7 +482,6 @@ class PlayblastDialog(object):
         self.form.path_option.set_value('Custom')
 
         name = self.form.filename.get_value()
-        capture_mode = self.form.capture_mode.get_value()
 
         for ext in hooks.extension.values():
             if name.endswith(ext.ext):
