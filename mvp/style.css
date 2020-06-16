@@ -9,14 +9,15 @@ QWidget[header='true'] {
     border: 0;
     margin: 0;
     padding: 0;
+    background: rgb(45, 45, 45);
 }
 
 QLabel[title='true'] {
-    font: 12pt "Arial";
+    font: 14pt "Arial";
 }
 
 QLabel[description='true'] {
-    font: 12pt "Arial";
+    font: 10pt "Arial";
 }
 
 QLabel{
@@ -24,12 +25,12 @@ QLabel{
 }
 
 QLabel[valid='false']{
-    color: rgb(203, 40, 40);
+    color: rgb(255, 50, 50);
 }
 
 QLabel[err='true']{
     font: 8pt "Arial";
-    color: rgb(203, 40, 40);
+    color: rgb(255, 50, 50);
 }
 
 QLabel[clickable='true']:hover{
