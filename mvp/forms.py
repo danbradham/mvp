@@ -16,17 +16,17 @@ class PostRenderForm(Form):
         description='Post Render Callbacks',
         header=False,
         labels_on_top=False,
-        columns=2
+        columns=2,
     )
 
 
 class PlayblastForm(Form):
 
     meta = FormMetaData(
+        header=True,
+        icon=os.path.join(os.path.dirname(__file__), 'icon.png'),
         title='Review',
-        description='Playblast for review',
-        header=False,
-        subforms_as_groups=True
+        subforms_as_groups=True,
     )
     preset = StringOptionField('Preset', options=['Current Settings'])
     capture_mode = ButtonOptionField(
@@ -34,7 +34,7 @@ class PlayblastForm(Form):
         options=['sequence', 'snapshot'],
         label_on_top=False
     )
-    filename = SaveFileField('Filename')
+    filename = SaveFileField('Filename', validators=(required,))
     camera = StringOptionField('Camera')
     resolution = Int2Field(
         'Resolution',
