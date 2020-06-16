@@ -32,7 +32,7 @@ def default_handler(data, options):
             filename=data['filename'].rsplit('.', 1)[0],
         )
 
-    playblast(**kwargs)
+    return playblast(**kwargs)
 
 
 hooks.register_extension(
