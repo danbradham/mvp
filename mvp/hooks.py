@@ -93,6 +93,11 @@ def unregister_extension(name):
 def init():
     '''Discover presets'''
 
+    postrender.clear()
+    pathgen.clear()
+    integration.clear()
+    extension.clear()
+
     # Find registered presets in MVP_PRESETS path
     for path in config.PRESETS_PATH:
 
