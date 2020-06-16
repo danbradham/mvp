@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "mvp"
+version = "0.8.0"
+description = "Maya Viewport API and playblasting tools"
+authors = ["Dan Bradham <danielbradham@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^2.7 || ^3.6"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
