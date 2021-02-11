@@ -35,11 +35,20 @@ class PlayblastForm(Form):
         title='Review',
         subforms_as_groups=True,
     )
-    preset = StringOptionField('Preset', options=['Current Settings'])
+    preset = StringOptionField(
+        'Preset',
+        options=['Current Settings'],
+        labeled=False,
+    )
     capture_mode = ButtonOptionField(
         'Capture Mode',
         options=['sequence', 'snapshot'],
-        label_on_top=False
+        label_on_top=False,
+    )
+    render_layers = ButtonOptionField(
+        'Render Layers',
+        options=['current', 'all enabled'],
+        label_on_top=False,
     )
     filename = SaveFileField('Filename', validators=(required,))
     camera = StringOptionField('Camera')
