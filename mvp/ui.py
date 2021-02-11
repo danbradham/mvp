@@ -8,6 +8,7 @@ from maya import cmds, mel
 import os
 import json
 from functools import partial
+from .renderlayers import enabled_render_layers
 from .viewport import playblast, Viewport
 from .forms import PlayblastForm, NewPresetForm, DelPresetForm
 from .utils import get_maya_window
@@ -280,12 +281,6 @@ class PlayblastDialog(object):
         self.form.ext_option = ext_option
         self.form.filename.grid.addWidget(ext_option.widget, 1, 2)
 
-        # Add capture mode label
-        self.form.capture_mode.label.hide()
-        self.form.capture_mode.grid.addWidget(
-            QtWidgets.QLabel('Capture Mode'), 1, 0
-        )
-
         # Add path option control
         path_options = ['Custom']
         path_options.extend(hooks.pathgen.keys())
@@ -393,18 +388,41 @@ class PlayblastDialog(object):
             if integration.enabled:
                 integration.on_filename_changed(self.form, path)
 
+    def on_capture_mode_changed(self):
+        '''Update path when capture_mode changes.'''
+
+        mode = self.form.capture_mode.get_value()
+        if mode == 'sequence':
+            self.form.ext_option.set_options(list(hooks.extension.keys()))
+        else:
+            self.form.ext_option.set_options(list(SNAPSHOT_EXT_OPTIONS))
+
+        self.update_path()
+
+    def on_filename_changed(self):
+        '''Update contol values when filename changes.'''
+
+        self.form.path_option.set_value('Custom')
+
+        name = self.form.filename.get_value()
+
+        for ext in hooks.extension.values():
+            if name.endswith(ext.ext):
+                self.form.ext_option.set_value(ext.name)
+                return
+
+    def on_identify(self):
+        '''Highlight the active viewport.'''
+
+        Viewport.active().identify()
+
     def on_accept(self):
         '''When form is accepted - parse options and capture'''
 
         self.store_form_state()
         data = self.form.get_value()
 
-        # Execute integration before_playblast
-        for name, integration in self.integrations.items():
-            if integration.enabled:
-                integration.before_playblast(integration.form, data)
-
-        # Get viewport state
+        # Prepare to render
         if data['preset'] == 'Current Settings':
             state = Viewport.active().get_state()
         else:
@@ -414,6 +432,33 @@ class PlayblastDialog(object):
         output_dir = os.path.dirname(data['filename'])
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+
+        renders = []
+        if data['render_layers'] == 'current':
+            renders.append(self._render(state, data))
+        else:
+            with enabled_render_layers() as layers:
+                for layer in layers:
+                    # Copy data and add layer name to filename
+                    render_data = data.copy()
+                    base, ext = render_data['filename'].rsplit('.', 1)
+                    layer_name = '{}_{}.{}'.format(base, layer.name(), ext)
+                    render_data['filename'] = layer_name
+
+                    layer.switchToLayer()
+                    renders.append(self._render(state, render_data))
+
+        # Finalize
+        for name, integration in self.integrations.items():
+            if integration.enabled:
+                integration.finalize(integration.form, renders)
+
+    def _render(self, state, data):
+
+        # Execute integration before_playblast
+        for name, integration in self.integrations.items():
+            if integration.enabled:
+                integration.before_playblast(integration.form, data)
 
         if data['capture_mode'] == 'snapshot':
             # Render snapshot
@@ -452,46 +497,22 @@ class PlayblastDialog(object):
                 options=extension.options or {},
             )
 
-        # postrender callbacks
+        # Execute postrender callbacks
         if 'postrender' in data:
             for name, enabled in data['postrender'].items():
                 if enabled:
                     postrender = hooks.postrender.get(name)
                     postrender.handler(data['filename'])
 
-        # integrations after_playblast
+        # Update filename from playblast command
         data['filename'] = out_file
+
+        # Execute integration after_playblast
         for name, integration in self.integrations.items():
             if integration.enabled:
                 integration.after_playblast(integration.form, data)
 
-    def on_capture_mode_changed(self):
-        '''Update path when capture_mode changes.'''
-
-        mode = self.form.capture_mode.get_value()
-        if mode == 'sequence':
-            self.form.ext_option.set_options(list(hooks.extension.keys()))
-        else:
-            self.form.ext_option.set_options(list(SNAPSHOT_EXT_OPTIONS))
-
-        self.update_path()
-
-    def on_filename_changed(self):
-        '''Update contol values when filename changes.'''
-
-        self.form.path_option.set_value('Custom')
-
-        name = self.form.filename.get_value()
-
-        for ext in hooks.extension.values():
-            if name.endswith(ext.ext):
-                self.form.ext_option.set_value(ext.name)
-                return
-
-    def on_identify(self):
-        '''Highlight the active viewport.'''
-
-        Viewport.active().identify()
+        return data
 
 
 def show():
@@ -499,3 +520,4 @@ def show():
 
     PlayblastDialog._instance = PlayblastDialog()
     PlayblastDialog._instance.show()
+    return PlayblastDialog._instance
