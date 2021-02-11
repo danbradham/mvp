@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mvp"
-version = "0.8.0"
+version = "0.8.3"
 description = "Maya Viewport API and playblasting tools"
 authors = ["Dan Bradham <danielbradham@gmail.com>"]
 license = "MIT"
