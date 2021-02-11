@@ -60,8 +60,27 @@ class Integration(object):
 
         return True
 
-    def before_playblast(self, data):
+    def before_playblast(self, form, data):
+        '''Runs before playblasting.'''
+
         return NotImplemented
 
-    def after_playblast(self, data):
+    def after_playblast(self, form, data):
+        '''Runs after playblasting.'''
+
+        return NotImplemented
+
+    def finalize(self, form, data):
+        '''Runs after entire playblast process is finished.
+
+        Unlike after_playblast, this method will only run ONCE after all
+        playblasting is finished. So, when playblasting multiple render layers
+        you can use this to execute after all of those render layers have
+        completed rendering.
+
+        Arguments:
+            form: The Form object including render options
+            data: List of renders that were output
+        '''
+
         return NotImplemented
