@@ -5,8 +5,15 @@ import os
 
 # Third party imports
 from psforms import *
+from psforms.exc import ValidationError
 from psforms.validators import required
 from psforms.fields import *
+
+
+def check_resolution(value):
+    if (value[0] % 2) != 0 or (value[1] % 2) != 0:
+        raise ValidationError('Resolution must use even numbers.')
+    return True
 
 
 class PostRenderForm(Form):
@@ -40,7 +47,8 @@ class PlayblastForm(Form):
         'Resolution',
         range1=(0, 8192),
         range2=(0, 8192),
-        default=(960, 540)
+        default=(960, 540),
+        validators=(check_resolution,)
     )
     postrender = PostRenderForm()
 
