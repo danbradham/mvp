@@ -43,7 +43,7 @@ class RenderGlobals(object):
 
         :param state: Dict containing attr, value pairs'''
 
-        for k, v in state.iteritems():
+        for k, v in state.items():
             setattr(self, k, v)
 
 

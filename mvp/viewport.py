@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
-'''
-=======================
-MVP - Maya Viewport API
-=======================
-
-I really needed this...
-'''
 from __future__ import print_function, absolute_import
 
-from Qt import QtGui, QtCore, QtWidgets
-from .renderglobals import RenderGlobals
-from .utils import wait, viewport_state, get_maya_window
+import sys
+
 import maya.cmds as cmds
 import maya.OpenMayaUI as OpenMayaUI
 import maya.OpenMaya as OpenMaya
 import maya.utils as utils
+from Qt import QtGui, QtCore, QtWidgets
+
+from .renderglobals import RenderGlobals
+from .utils import wait, viewport_state, get_maya_window
+
+# Py3 compat
+if sys.version_info > (3, 0):
+    basestring = str
+    long = int
 
 
 EDITOR_PROPERTIES = [
@@ -363,7 +364,7 @@ class Viewport(object):
         if renderglobals_state:
             RenderGlobals.set_state(renderglobals_state)
 
-        for k, v in cstate.iteritems():
+        for k, v in cstate.items():
             setattr(self, k, v)
 
     def playblast(self, camera=None, state=None, **kwargs):
@@ -559,7 +560,7 @@ class Viewport(object):
         usage::
 
             for view in Viewport.iter():
-                print v.panel
+                print(v.panel)
         '''
 
         for index in range(cls.count()):
@@ -577,8 +578,8 @@ class Highlight(QtWidgets.QDialog):
         self.widget = self.view.widget
 
         self.setWindowFlags(
-            self.windowFlags() |
-            QtCore.Qt.FramelessWindowHint
+            self.windowFlags()
+            | QtCore.Qt.FramelessWindowHint
         )
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
