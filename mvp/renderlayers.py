@@ -7,7 +7,10 @@ from maya import cmds
 
 @contextmanager
 def enabled_render_layers():
-    old_layer = cmds.editRenderLayerGlobals(query=True, currentRenderLayer=True)
+    old_layer = cmds.editRenderLayerGlobals(
+        query=True,
+        currentRenderLayer=True,
+    )
     try:
         rs = renderSetup.instance()
 
@@ -17,7 +20,7 @@ def enabled_render_layers():
             return _switch
 
         enabled_layers = []
-        for layer in rs.getRenderLayers():
+        for layer in rs.getRenderLayers() + [rs.getDefaultRenderLayer()]:
 
             layer.switchToLayer = switchToLayer(layer)
             if layer.isRenderable():
