@@ -13,15 +13,15 @@ QWidget[header='true'] {
 }
 
 QLabel[title='true'] {
-    font: 14pt "Arial";
+    font: 14pt;
 }
 
 QLabel[description='true'] {
-    font: 10pt "Arial";
+    font: 10pt;
 }
 
 QLabel{
-    font: 10pt "Arial";
+    font: 10pt;
 }
 
 QLabel[valid='false']{
@@ -29,30 +29,36 @@ QLabel[valid='false']{
 }
 
 QLabel[err='true']{
-    font: 8pt "Arial";
+    font: 10pt;
     color: rgb(255, 50, 50);
 }
 
+QLabel[clickable='true']{
+    padding-bottom: 4;
+}
+
 QLabel[clickable='true']:hover{
-    font: 10pt "Arial";
+    color: #CCC;
 }
 
 QPushButton{
-    height: 24;
+    height: 24px;
+    padding: 0 10 0 10;
 }
 
 QPushButton[grouptitle='true']{
     background: rgb(68, 68, 68);
     border: 0;
+    border-top: 1px solid rgb(55, 55, 55);
+    border-bottom: 1px solid rgb(55, 55, 55);
     margin: 0;
     padding: 0;
     padding-left: 20px;
     text-align: left;
-    font: 10pt "Arial";
 }
 
 QPushButton[grouptitle='true']:hover{
-    background: rgb(55, 55, 55);
+    background: rgb(78, 78, 78);
     border-radius: 0;
 }
 
@@ -64,11 +70,10 @@ QWidget[groupwidget='true']{
 
 QComboBox {
     padding-left: 13;
-    height: 30;
+    height: 24px;
 }
 
 QLineEdit{
-    font: 10pt "Arial";
-    height: 30;
+    height: 24px;
     padding-left: 10;
 }

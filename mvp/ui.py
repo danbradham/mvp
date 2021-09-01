@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from Qt import QtCore, QtGui, QtWidgets
-from psforms import controls
-from psforms.widgets import FormGroup, FormWidget
-from psforms.form import generate_form
+from .Qt import QtCore, QtGui, QtWidgets
+from .vendor.psforms import controls
+from .vendor.psforms.widgets import FormGroup, FormWidget
+from .vendor.psforms.form import generate_form
 from maya import cmds, mel
 import os
 import json
@@ -104,11 +104,14 @@ class IntegrationUI(object):
                 icon=self.integration.icon,
                 header=False,
                 columns=self.integration.columns,
+                labels_on_top=False,
             )
             self._form = form.as_widget()
 
             # Attach controls to integration methods
             for control_name, control in self._form.controls.items():
+                if isinstance(control.widget, QtWidgets.QTextEdit):
+                    control.widget.setFixedHeight(48)
                 method = getattr(
                     self.integration,
                     'on_' + control_name + '_changed',
@@ -263,6 +266,7 @@ class PlayblastDialog(object):
         self.form.camera.set_options(cameras)
 
         # Viewport Presets
+        self.form.preset.grid.setColumnStretch(1, 1)
         new_button = QtWidgets.QPushButton('New')
         new_button.clicked.connect(partial(new_preset_dialog, self.form))
         del_button = QtWidgets.QPushButton('Delete')
@@ -294,9 +298,9 @@ class PlayblastDialog(object):
         self.form.filename.grid.addWidget(path_option.widget, 1, 3)
 
         # Identify button
-        identify_button = QtWidgets.QPushButton('Identify')
+        identify_button = QtWidgets.QPushButton('highlight viewport')
         identify_button.clicked.connect(self.on_identify)
-        self.form.button_layout.addWidget(identify_button)
+        self.form.button_layout.insertWidget(0, identify_button)
 
         # Add postrender hook checkboxes
         self.form.postrender.after_toggled.connect(self.auto_resize)
