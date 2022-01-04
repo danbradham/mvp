@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-# Standard library imports
-import os
-
 # Third party imports
-from .vendor.psforms import *
-from .vendor.psforms.exc import ValidationError
-from .vendor.psforms.validators import required
-from .vendor.psforms.fields import *
+from .. import resources
+from ..vendor.psforms import *
+from ..vendor.psforms.exc import ValidationError
+from ..vendor.psforms.validators import required
+from ..vendor.psforms.fields import *
 
 
 def check_resolution(value):
@@ -31,7 +29,7 @@ class PlayblastForm(Form):
 
     meta = FormMetaData(
         header=False,
-        icon=os.path.join(os.path.dirname(__file__), 'icon.png'),
+        icon=resources.get_path('icon.png'),
         title='Review',
         subforms_as_groups=True,
         labels_on_top=False
@@ -71,10 +69,15 @@ class NewPresetForm(Form):
 
     meta = FormMetaData(
         title='New Preset',
-        description='Create a new preset from the selected panel',
-        header=True,
+        description='Create a new preset from the selected panel.',
+        header=False,
     )
 
+    message = InfoField(
+        'Message',
+        text='Create a new preset from the selected panel.',
+        labeled=False,
+    )
     panel = StringOptionField('Panel')
     name = StringField('Preset Name', validators=(required,))
 
@@ -83,6 +86,12 @@ class DelPresetForm(Form):
 
     meta = FormMetaData(
         title='Delete Preset',
-        description='Are you sure you want to delete this preset?',
-        header=True,
+        description='Delete the active preset.',
+        header=False,
+    )
+
+    message = InfoField(
+        'Message',
+        text='Are you sure you want to delete this preset?',
+        labeled=False,
     )

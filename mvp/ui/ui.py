@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 
-from .Qt import QtCore, QtGui, QtWidgets
-from .vendor.psforms import controls
-from .vendor.psforms.widgets import FormGroup, FormWidget
-from .vendor.psforms.form import generate_form
-from maya import cmds, mel
 import os
 import json
 from functools import partial
-from .renderlayers import enabled_render_layers
-from .viewport import playblast, Viewport
+
+from maya import cmds, mel
+
 from .forms import PlayblastForm, NewPresetForm, DelPresetForm
-from .utils import get_maya_window
-from .presets import *
-from . import hooks
+from .. import hooks, resources
+from ..renderlayers import enabled_render_layers
+from ..viewport import playblast, Viewport
+from ..utils import get_maya_window
+from ..presets import *
+from ..vendor.psforms import controls
+from ..vendor.psforms.widgets import FormGroup, FormWidget, IconButton
+from ..vendor.psforms.form import generate_form
+from ..vendor.Qt import QtCore, QtGui, QtWidgets
 
 
 MISSING = object()
@@ -24,6 +26,7 @@ SNAPSHOT_EXT_OPTIONS = {
 SCENE_STATE_NODE = 'time1'
 SCENE_STATE_ATTR = 'mvp_dialog_state'
 SCENE_STATE_PATH = SCENE_STATE_NODE + '.' + SCENE_STATE_ATTR
+RESOLUTION_OPTIONS = ['Render Settings', '2048x2048', '1920x1080']
 
 
 def get_sound_track():
@@ -152,13 +155,6 @@ def set_scene_dialog_state(state):
     cmds.setAttr(SCENE_STATE_PATH, encoded_state, type='string')
 
 
-def stylesheet():
-    path = os.path.join(os.path.dirname(__file__), 'style.css')
-    with open(path, 'r') as f:
-        style = f.read()
-    return style
-
-
 def new_preset_dialog(parent_dialog):
 
     dialog = NewPresetForm.as_dialog(parent=parent_dialog)
@@ -182,7 +178,7 @@ def new_preset_dialog(parent_dialog):
 
     dialog.panel.grid.addWidget(identify, 1, 2)
     dialog.accepted.connect(on_accept)
-    dialog.setStyleSheet(stylesheet())
+    dialog.setStyleSheet(resources.get_style())
     dialog.show()
 
 
@@ -195,7 +191,7 @@ def del_preset_dialog(parent_dialog):
 
     dialog = DelPresetForm.as_dialog(parent=parent_dialog)
     dialog.accepted.connect(on_accept)
-    dialog.setStyleSheet(stylesheet())
+    dialog.setStyleSheet(resources.get_style())
     dialog.show()
 
 
@@ -239,7 +235,6 @@ class PlayblastDialog(object):
         '''Restore form state from scene'''
         dialog_state = get_scene_dialog_state(DIALOG_STATE)
         if dialog_state:
-
             # Update integration ui states
             for name, inst in self.integrations.items():
                 state = dialog_state.pop(name, None)
@@ -255,6 +250,13 @@ class PlayblastDialog(object):
             if dialog_state['path_option'] != 'Custom':
                 self.update_path()
 
+        else:
+            # Defaults when no dialog state is present
+            self.form.resolution.set_value((
+                cmds.getAttr('defaultResolution.width'),
+                cmds.getAttr('defaultResolution.height'),
+            ))
+
     def setup_controls(self):
         '''Setup controls and options - Add additional widgets'''
 
@@ -267,18 +269,22 @@ class PlayblastDialog(object):
 
         # Viewport Presets
         self.form.preset.grid.setColumnStretch(1, 1)
-        new_button = QtWidgets.QPushButton('New')
-        new_button.clicked.connect(partial(new_preset_dialog, self.form))
-        del_button = QtWidgets.QPushButton('Delete')
-        del_button.clicked.connect(partial(del_preset_dialog, self.form))
-        self.form.preset.grid.addWidget(new_button, 1, 2)
-        self.form.preset.grid.addWidget(del_button, 1, 3)
+        presets_menu_button = IconButton(
+            icon=resources.get_path('dots-vertical.png'),
+            tip='Resolution Presets.',
+            name='resolution_menu',
+        )
+        presets_menu = QtWidgets.QMenu(parent=presets_menu_button)
+        presets_menu.addAction('New Preset', partial(new_preset_dialog, self.form))
+        presets_menu.addAction('Delete Preset', partial(del_preset_dialog, self.form))
+        presets_menu_button.setMenu(presets_menu)
+        self.form.preset.grid.addWidget(presets_menu_button, 1, 2)
         update_presets(self.form)
 
         # Extension options
         ext_option = controls.StringOptionControl(
             'Ext Option',
-            labeled=False
+            labeled=False,
         )
         ext_option.set_options(list(hooks.extension.keys()))
         self.form.controls['ext_option'] = ext_option
@@ -290,7 +296,7 @@ class PlayblastDialog(object):
         path_options.extend(hooks.pathgen.keys())
         path_option = controls.StringOptionControl(
             'Path Option',
-            labeled=False
+            labeled=False,
         )
         path_option.set_options(path_options)
         self.form.controls['path_option'] = path_option
@@ -302,8 +308,34 @@ class PlayblastDialog(object):
         identify_button.clicked.connect(self.on_identify)
         self.form.button_layout.insertWidget(0, identify_button)
 
+        # Resolution Options
+        res_menu_button = IconButton(
+            icon=resources.get_path('dots-vertical.png'),
+            tip='Resolution Presets.',
+            name='resolution_menu',
+        )
+        res_menu = QtWidgets.QMenu(parent=res_menu_button)
+        for option in RESOLUTION_OPTIONS:
+            res_menu.addAction(
+                option,
+                partial(self.apply_resolution_preset, option)
+            )
+        res_menu_button.setMenu(res_menu)
+        self.form.resolution.grid.addWidget(res_menu_button, 1, 2)
+
+        half_res = controls.ToggleControl(
+            name='Half Res',
+            icon=resources.get_path('half.png'),
+            tip='Render half resolution.',
+            labeled=False,
+        )
+        self.form.controls['half_res'] = half_res
+        self.form.half_res = half_res
+        self.form.resolution.grid.addWidget(half_res.widget, 1, 3)
+
         # Add postrender hook checkboxes
         self.form.postrender.after_toggled.connect(self.auto_resize)
+        self.form.postrender.toggle()
         for postrender in hooks.postrender.values():
             self.form.postrender.add_control(
                 postrender.name,
@@ -339,10 +371,19 @@ class PlayblastDialog(object):
         self.form.filename.changed.connect(self.on_filename_changed)
         self.form.accepted.connect(self.on_accept)
 
+    def apply_resolution_preset(self, preset):
+        if preset == 'Render Settings':
+            self.form.resolution.set_value((
+                cmds.getAttr('defaultResolution.width'),
+                cmds.getAttr('defaultResolution.height'),
+            ))
+        else:
+            self.form.resolution.set_value([int(num) for num in preset.split('x')])
+
     def apply_stylesheet(self):
         '''Apply mvp stylesheet'''
 
-        self.form.setStyleSheet(stylesheet())
+        self.form.setStyleSheet(resources.get_style())
 
     def on_ext_changed(self):
         '''Called when the extension changes.'''
@@ -464,6 +505,13 @@ class PlayblastDialog(object):
             if integration.enabled:
                 integration.before_playblast(integration.form, data)
 
+        # Prepare resolution
+        if data.pop('half_res', False):
+            data['resolution'] = (
+                round_to_even(data['resolution'][0] * 0.5),
+                round_to_even(data['resolution'][1] * 0.5),
+            )
+
         if data['capture_mode'] == 'snapshot':
             # Render snapshot
             data['start_frame'] = cmds.currentTime(q=True)
@@ -517,6 +565,10 @@ class PlayblastDialog(object):
                 integration.after_playblast(integration.form, data)
 
         return data
+
+
+def round_to_even(value):
+    return value if value % 2 == 0 else value + 1
 
 
 def show():

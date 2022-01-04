@@ -1,10 +1,8 @@
-from __future__ import print_function
-
-from .Qt import QtWidgets, QtCore, QtGui
 import math
 
-from .exc import *
 from . import resource
+from .exc import *
+from .Qt import QtWidgets, QtCore, QtGui
 
 
 class ControlLayout(QtWidgets.QGridLayout):
@@ -283,6 +281,11 @@ class FormGroup(QtWidgets.QWidget):
         enabled = self.title.isChecked()
         self.widget.setVisible(enabled)
         self.after_toggled.emit(enabled)
+
+    def toggle(self):
+        value = not self.title.isChecked()
+        self.title.setChecked(value)
+        self.toggle_collapsed(value)
 
     def __getattr__(self, attr):
         try:

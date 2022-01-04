@@ -222,6 +222,12 @@ TextField = create_fieldtype(
     'TextField',
     control_cls=controls.TextControl,
 )
+InfoField = create_fieldtype(
+    'InfoField',
+    control_cls=controls.InfoControl,
+    control_defaults={'text': None, 'align': 'left'},
+    field_defaults={'labeled': False},
+)
 
 
 field_map = {cls.__name__: cls for cls in FieldType.__subclasses__()}
@@ -240,6 +246,7 @@ type_map = {
     '(float, float)': Float2Field,
     'bool': BoolField,
     'list': ListField,
+    'info': InfoField,
     str: StringField,
     (bool,): ButtonOptionField,
     (int,): IntOptionField,

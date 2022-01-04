@@ -264,7 +264,6 @@ class SpinControl(BaseControl):
 
     def init_widgets(self):
         sb = self.widget_cls(parent=self.parent())
-        sb.setFixedHeight(24)
         sb.valueChanged.connect(self.emit_changed)
         if self.range:
             sb.setRange(*self.range)
@@ -289,10 +288,8 @@ class Spin2Control(BaseControl):
     def init_widgets(self):
 
         sb1 = self.widget_cls(parent=self.parent())
-        sb1.setFixedHeight(24)
         sb1.valueChanged.connect(self.emit_changed)
         sb2 = self.widget_cls(parent=self.parent())
-        sb2.setFixedHeight(24)
         sb2.valueChanged.connect(self.emit_changed)
         if self.range1:
             sb1.setRange(*self.range1)
@@ -452,6 +449,26 @@ class IntButtonOptionControl(ButtonOptionControl):
         return self.button_group.checkedId()
 
 
+class ToggleControl(BaseControl):
+
+    def __init__(self, name, icon, tip=None, *args, **kwargs):
+        self.icon = icon
+        self.tip = tip
+        super(ToggleControl, self).__init__(name, *args, **kwargs)
+
+    def init_widgets(self):
+        b = IconButton(self.icon, self.tip, 'checkable')
+        b.setCheckable(True)
+        b.toggled.connect(self.emit_changed)
+        return (b,)
+
+    def get_value(self):
+        return self.widget.isChecked()
+
+    def set_value(self, value):
+        self.widget.setChecked(value)
+
+
 class BoolControl(BaseControl):
 
     def init_widgets(self):
@@ -473,6 +490,32 @@ class StringControl(BaseControl):
         le = QtWidgets.QLineEdit(parent=self.parent())
         le.textEdited.connect(self.emit_changed)
         return (le,)
+
+    def get_value(self):
+        return self.widget.text()
+
+    def set_value(self, value):
+        self.widget.setText(value)
+
+
+class InfoControl(BaseControl):
+
+    def __init__(self, name, text=None, align='left', *args, **kwargs):
+        self.alignment = {
+            'left': QtCore.Qt.AlignLeft,
+            'center': QtCore.Qt.AlignCenter,
+            'left': QtCore.Qt.AlignRight,
+        }.get(align.lower(), QtCore.Qt.AlignLeft)
+
+        super(InfoControl, self).__init__(name, *args, **kwargs)
+
+        if text:
+            self.set_value(text)
+
+
+    def init_widgets(self):
+        w = QtWidgets.QLabel(alignment=self.alignment, parent=self.parent())
+        return (w,)
 
     def get_value(self):
         return self.widget.text()
