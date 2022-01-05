@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from Qt import QtWidgets
 import time
 from contextlib import contextmanager
+
+from .vendor.Qt import QtWidgets
 
 
 def get_maya_window(cache=[]):
